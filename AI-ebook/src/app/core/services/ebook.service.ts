@@ -30,7 +30,7 @@ export class EbookService {
 
     try {
       const parsed = JSON.parse(raw) as Ebook[];
-      return parsed.length ? parsed : this.getSeedEbooks();
+      return Array.isArray(parsed) ? parsed : this.getSeedEbooks();
     } catch {
       return this.getSeedEbooks();
     }
@@ -38,6 +38,10 @@ export class EbookService {
 
   private writeStore(ebooks: Ebook[]): void {
     localStorage.setItem(this.storageKey, JSON.stringify(ebooks));
+  }
+
+  deleteEbook(id: string): void {
+    this.writeStore(this.readStore().filter((ebook) => ebook.id !== id));
   }
 
   private getSeedEbooks(): Ebook[] {
@@ -226,13 +230,12 @@ export class EbookService {
 
   getDashboardSnapshot(): Observable<DashboardSnapshot> {
     const ebooks = this.readStore();
+    const readable = ebooks
+      .filter((ebook) => ebook.status === 'READY_TO_READ')
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     const snapshot: DashboardSnapshot = {
       userName: 'Nadila',
-      continueReading: ebooks.find((ebook) => ['DRAFT', 'RESEARCHING', 'SOURCE_REVIEW'].includes(ebook.status))
-        ? this.toSummary(
-            ebooks.find((ebook) => ['DRAFT', 'RESEARCHING', 'SOURCE_REVIEW'].includes(ebook.status)) || ebooks[0]
-          )
-        : null,
+      continueReading: readable.length ? this.toSummary(readable[0]) : null,
       recentEbooks: ebooks.slice(0, 4).map((ebook) => this.toSummary(ebook))
     };
 
@@ -415,7 +418,17 @@ export class EbookService {
       return of(empty).pipe(delay(150));
     }
 
-    const chapters = ebook.outline?.chapters ?? [];
+    // Keep generation aligned with the outline page even for older ebooks
+    // that were saved before an outline was persisted.
+    const chapters = ebook.outline?.chapters?.length
+      ? ebook.outline.chapters
+      : [
+          { id: '1', title: 'Introduction to UI/UX', lessons: 3 },
+          { id: '2', title: 'Understanding Users', lessons: 4 },
+          { id: '3', title: 'User Research', lessons: 4 },
+          { id: '4', title: 'Wireframing', lessons: 3 },
+          { id: '5', title: 'Prototyping', lessons: 3 }
+        ];
     const next: GenerationProgress = {
       totalChapters: chapters.length || 1,
       completedChapters: Math.max(0, chapters.length - 1),
@@ -446,12 +459,18 @@ export class EbookService {
     const books = this.readStore();
     const ebook = books.find((item) => item.id === id);
     const fallback: GenerationProgress = {
-      totalChapters: 1,
+      totalChapters: 5,
       completedChapters: 0,
-      currentChapter: 'Chapter 1',
+      currentChapter: 'Introduction to UI/UX',
       progress: 0,
       failedChapters: 0,
-      chapters: [{ chapterId: 'chapter-1', title: 'Chapter 1', status: 'pending' }]
+      chapters: [
+        { chapterId: '1', title: 'Introduction to UI/UX', status: 'pending' },
+        { chapterId: '2', title: 'Understanding Users', status: 'pending' },
+        { chapterId: '3', title: 'User Research', status: 'pending' },
+        { chapterId: '4', title: 'Wireframing', status: 'pending' },
+        { chapterId: '5', title: 'Prototyping', status: 'pending' }
+      ]
     };
 
     return of(ebook?.generation ?? fallback).pipe(delay(150));
@@ -562,6 +581,24 @@ export class EbookService {
     }
 
     return of(result).pipe(delay(200));
+  }
+
+  finalizeEbook(id: string): Observable<Ebook | undefined> {
+    const books = this.readStore();
+    const index = books.findIndex((ebook) => ebook.id === id);
+    if (index < 0) return of(undefined);
+    books[index] = { ...books[index], status: 'READY_TO_READ', currentStep: 'READER', creationProgress: 100 };
+    this.writeStore(books);
+    return of(books[index]).pipe(delay(150));
+  }
+
+  updateCover(id: string, coverImage: string): Observable<Ebook | undefined> {
+    const books = this.readStore();
+    const index = books.findIndex((ebook) => ebook.id === id);
+    if (index < 0) return of(undefined);
+    books[index] = { ...books[index], coverImage };
+    this.writeStore(books);
+    return of(books[index]);
   }
 
   updateReadingProgress(id: string, chapterIndex: number, progress: number): Observable<Ebook> {

@@ -13,7 +13,6 @@ import { GenerationPageComponent } from './features/ebook/generation/pages/gener
 import { EditorPageComponent } from './features/ebook/editor/pages/editor-page.component';
 import { QualityCheckPageComponent } from './features/ebook/quality/pages/quality-check-page.component';
 import { ReaderPageComponent } from './features/reader/pages/reader-page/reader-page.component';
-import { LibraryPageComponent } from './features/library/pages/library-page/library-page.component';
 import { EbookDetailPageComponent } from './features/ebook/detail/pages/ebook-detail-page/ebook-detail-page.component';
 
 export const routes: Routes = [
@@ -24,7 +23,6 @@ export const routes: Routes = [
     component: AppShellComponent,
     children: [
       { path: 'dashboard', component: DashboardPageComponent },
-      { path: 'library', component: LibraryPageComponent },
       { path: 'ebooks/:id/detail', component: EbookDetailPageComponent },
       { path: 'ebooks/create', component: CreateEbookPageComponent },
       { path: 'ebooks/create/preferences', component: LearningPreferencesPageComponent },

@@ -32,7 +32,7 @@ import { EbookService } from '../../../../../core/services/ebook.service';
 
           <!-- Right: Book Info -->
           <main class="info-content">
-            <div class="status-badge">Published</div>
+            <div class="status-badge">{{ ebook.status === 'READY_TO_READ' ? 'Ready to read' : 'Draft' }}</div>
             <h1 class="book-title">{{ ebook.title }}</h1>
             <p class="book-subtitle">{{ ebook.description || 'A practical guide to designing with AI as part of the product system.' }}</p>
 
@@ -41,8 +41,28 @@ import { EbookService } from '../../../../../core/services/ebook.service';
               <button class="btn-outline">
                 <span class="icon">▶</span> Listen
               </button>
-              <button class="btn-outline" (click)="editEbook()">Edit Ebook</button>
-              <button class="btn-more">•••</button>
+              <button class="btn-outline" *ngIf="ebook.status !== 'READY_TO_READ'" (click)="editEbook()">Edit Ebook</button>
+              <button class="btn-outline" *ngIf="ebook.status !== 'READY_TO_READ'" (click)="coverMenu = true">Cover</button>
+              <input #coverInput type="file" accept="image/*" hidden (change)="changeCover($event)" />
+              <button class="btn-publish" *ngIf="ebook.status !== 'READY_TO_READ'" (click)="publishEbook()">Publish</button>
+              <button type="button" class="btn-more" aria-label="Delete ebook" aria-haspopup="dialog" (click)="deleteError = ''; deleteDialog.showModal()">•••</button>
+            </div>
+            <dialog #deleteDialog class="delete-dialog" aria-labelledby="delete-title" aria-describedby="delete-description">
+              <h3 id="delete-title">Delete ebook?</h3>
+              <p id="delete-description">“{{ ebook.title }}” will be removed from your collection. This cannot be undone.</p>
+              <p *ngIf="deleteError" role="alert">{{ deleteError }}</p>
+              <div class="delete-actions">
+                <button type="button" class="btn-outline" autofocus (click)="deleteDialog.close()">Cancel</button>
+                <button type="button" class="btn-delete" (click)="deleteEbook()">Delete Ebook</button>
+              </div>
+            </dialog>
+            <div class="cover-modal" *ngIf="coverMenu" (click)="coverMenu = false">
+              <div class="cover-dialog" (click)="$event.stopPropagation()">
+                <h3>Choose a cover</h3><p>Select how you want to add your book cover.</p>
+                <button type="button" (click)="coverInput.click(); coverMenu = false">Upload from computer</button>
+                <button type="button" (click)="generateCover(); coverMenu = false">Generate with AI</button>
+                <button type="button" class="cancel" (click)="coverMenu = false">Cancel</button>
+              </div>
             </div>
 
             <div class="stats-row">
@@ -234,7 +254,19 @@ import { EbookService } from '../../../../../core/services/ebook.service';
         gap: 10px;
         font-size: 1rem;
       }
+      .btn-publish { border:0; border-radius:10px; padding:0 18px; height:40px; background:#2f8f5b; color:#fff; font-weight:700; cursor:pointer; }
+      .cover-modal { position:fixed; inset:0; z-index:20; display:grid; place-items:center; background:rgba(0,0,0,.35); }
+      .cover-dialog { width:min(90vw,360px); padding:24px; border-radius:16px; background:#fff; box-shadow:0 18px 50px rgba(0,0,0,.2); }
+      .cover-dialog h3 { margin:0 0 6px; }.cover-dialog p { color:#666; font-size:13px; margin:0 0 18px; }
+      .cover-dialog button { width:100%; height:42px; margin-top:9px; border:1px solid #ddd; border-radius:9px; background:#fff; font-weight:700; cursor:pointer; }
+      .cover-dialog button:first-of-type { background:#1d1d1d; color:#fff; }.cover-dialog .cancel { border:0; color:#777; }
 
+      .delete-dialog { width:min(400px,calc(100vw - 48px)); box-sizing:border-box; border:1px solid #dedad7; border-radius:16px; padding:24px; color:#222; background:#fff; }
+      .delete-dialog::backdrop { background:rgba(0,0,0,.4); }
+      .delete-dialog h3 { margin:0 0 12px; }
+      .delete-dialog p { line-height:1.5; overflow-wrap:anywhere; }
+      .delete-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; margin-top:24px; }
+      .btn-delete { border:0; border-radius:10px; padding:12px 18px; background:#b42318; color:#fff; font-weight:700; cursor:pointer; }
       .btn-more {
         background: transparent;
         border: 1px solid #e0ddd9;
@@ -368,6 +400,18 @@ import { EbookService } from '../../../../../core/services/ebook.service';
   ]
 })
 export class EbookDetailPageComponent implements OnInit {
+  coverMenu = false;
+  deleteError = '';
+
+  deleteEbook(): void {
+    if (!this.ebook) return;
+    try {
+      this.ebookService.deleteEbook(this.ebook.id);
+      this.router.navigate(['/dashboard']);
+    } catch {
+      this.deleteError = 'Unable to delete this ebook. Please try again.';
+    }
+  }
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly ebookService = inject(EbookService);
@@ -407,6 +451,33 @@ export class EbookDetailPageComponent implements OnInit {
     if (this.ebook?.id) {
       this.router.navigate(['/ebooks', this.ebook.id, 'editor']);
     }
+  }
+
+  changeCover(event: Event): void {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file || !this.ebook) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = String(reader.result);
+      this.ebookService.updateCover(this.ebook!.id, image).subscribe((updated) => {
+        if (updated) this.ebook = updated;
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  generateCover(): void {
+    if (!this.ebook) return;
+    const seed = encodeURIComponent(`${this.ebook.id}-${Date.now()}`);
+    const image = `https://picsum.photos/seed/${seed}/600/900`;
+    this.ebookService.updateCover(this.ebook.id, image).subscribe((updated) => { if (updated) this.ebook = updated; });
+  }
+
+  publishEbook(): void {
+    if (!this.ebook) return;
+    this.ebookService.finalizeEbook(this.ebook.id).subscribe((updated) => {
+      if (updated) this.ebook = updated;
+    });
   }
 
   goBack(): void {

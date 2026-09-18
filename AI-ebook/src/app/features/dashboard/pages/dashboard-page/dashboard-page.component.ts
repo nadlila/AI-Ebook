@@ -15,7 +15,7 @@ import { DashboardSnapshot, EbookSummary } from '../../../../core/models/ebook.m
         <p>Create something new</p>
 
         <div class="cta-box">
-          <span>Turn a topic into a Module or E-book.</span>
+          <span>Turn a topic into E-book.</span>
           <button class="primary-btn" routerLink="/ebooks/create">Start Creating</button>
         </div>
       </div>
@@ -36,9 +36,9 @@ import { DashboardSnapshot, EbookSummary } from '../../../../core/models/ebook.m
       </div>
 
       <div class="section-card">
-        <h3>My Recent Ebook</h3>
+        <h3>My Library</h3>
         <div class="ebook-grid">
-          <article class="ebook-item" *ngFor="let item of data.recentEbooks" (click)="openEbook(item)" tabindex="0" (keydown.enter)="openEbook(item)">
+            <article class="ebook-item" *ngFor="let item of readyBooks(data.recentEbooks)" (click)="openEbook(item)" tabindex="0" (keydown.enter)="openEbook(item)">
             <img [src]="item.coverImage" [alt]="item.title" />
             <div class="book-title">{{ item.title }}</div>
             <div class="book-meta">{{ item.chapterCount }} Chapters</div>
@@ -52,7 +52,20 @@ import { DashboardSnapshot, EbookSummary } from '../../../../core/models/ebook.m
             </button>
           </article>
         </div>
-        <button class="secondary-btn" routerLink="/library">View Library</button>
+      </div>
+
+      <div class="section-card">
+        <h3>My Draft</h3>
+        <div class="ebook-grid">
+          <article class="ebook-item" *ngFor="let item of draftBooks(data.recentEbooks)" (click)="openEbook(item)">
+            <img [src]="item.coverImage" [alt]="item.title" />
+            <div class="book-title">{{ item.title }}</div><div class="book-meta">{{ item.chapterCount }} Chapters</div>
+            <div class="book-meta">{{ item.status === 'READY_TO_READ' ? 'Reading' : draftStage(item) }}</div>
+            <div class="book-meta">{{ item.status === 'READY_TO_READ' ? item.readingProgress : item.creationProgress }}%</div>
+            <button class="resume-btn" *ngIf="item.status !== 'READY_TO_READ'" type="button" (click)="$event.stopPropagation(); resume(item)">Continue Creating</button>
+            <button class="resume-btn" *ngIf="item.status === 'READY_TO_READ'" type="button" (click)="$event.stopPropagation(); continueReading(item)">Continue Reading</button>
+          </article>
+        </div>
       </div>
     </section>
 
@@ -230,7 +243,24 @@ export class DashboardPageComponent implements OnInit {
   }
 
   isInProgress(item: EbookSummary): boolean {
-    return ['DRAFT', 'RESEARCHING', 'RESEARCH_READY', 'SOURCE_REVIEW'].includes(item.status);
+    return item.status !== 'READY_TO_READ';
+  }
+
+  readyBooks(items: EbookSummary[]): EbookSummary[] {
+    return items.filter((item) => item.status === 'READY_TO_READ');
+  }
+
+  draftBooks(items: EbookSummary[]): EbookSummary[] {
+    return items.filter((item) => item.status !== 'READY_TO_READ');
+  }
+
+  draftStage(item: EbookSummary): string {
+    const stages: Record<string, string> = {
+      BASIC_INFORMATION: 'Creation', CREATE_EBOOK: 'Creation', LEARNING_PREFERENCES: 'Creation',
+      RESEARCH: 'Research', SOURCE_REVIEW: 'Source / Research', LEARNING_PLAN: 'Source / Research',
+      OUTLINE: 'Outline', OUTLINE_APPROVAL: 'Outline', GENERATION: 'Generation', EDITOR: 'Editor', QUALITY_CHECK: 'Editor'
+    };
+    return stages[item.currentStep] || 'Creation';
   }
 
   resume(item: EbookSummary): void {
