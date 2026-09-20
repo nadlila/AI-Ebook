@@ -174,12 +174,10 @@ import { DashboardSnapshot, EbookSummary } from '../../../../core/models/ebook.m
         width: 100%;
         background: #F7F7F5;
         border: 1px solid #d7d2cf;
-        border-top-left-radius: 0;
-        border-top-right-radius: 18px;
-        border-bottom-left-radius: 18px;
-        border-bottom-right-radius: 0;
+        border-radius: 0 18px 0 18px;
         overflow: hidden;
-        padding: 0;
+        padding: 6px;
+        padding-bottom: 12px;
         cursor: pointer;
       }
       .ebook-item img {
@@ -187,25 +185,25 @@ import { DashboardSnapshot, EbookSummary } from '../../../../core/models/ebook.m
         height: 180px;
         object-fit: cover;
         display: block;
-        border-radius: 0;
+        border-radius:  0 14px  0 14px;
       }
       .book-title {
-        margin: 12px 12px 0;
+        margin: 8px 0 0;
         font-weight: 700;
         font-size: 1.05rem;
         line-height: 1.35;
       }
       .book-meta {
-        margin: 6px 12px 0;
+        margin: 5px 0 0;
         color: #666;
         font-size: 0.9rem;
       }
       .resume-btn {
-        margin: 12px 12px 14px;
+        margin: 12px 0 0;
         background: #1d1d1d;
         color: white;
         height: 38px;
-        width: calc(100% - 24px);
+        width: 100%;
         border-radius: 10px;
         font-weight: 700;
         cursor: pointer;

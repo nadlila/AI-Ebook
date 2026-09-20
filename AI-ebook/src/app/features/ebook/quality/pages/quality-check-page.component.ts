@@ -250,7 +250,7 @@ export class QualityCheckPageComponent implements OnInit {
       return;
     }
 
-    this.ebookService.finalizeEbook(id).subscribe(() => this.router.navigate(['/ebooks', id, 'reader']));
+    this.router.navigate(['/ebooks', id, 'detail']);
   }
 
 }
