@@ -1,0 +1,125 @@
+# Isi variabel dari session Supabase dan respons API. Jangan commit token nyata.
+@baseUrl = http://localhost:8080/api
+@token = REPLACE_WITH_SUPABASE_ACCESS_TOKEN
+@projectId = REPLACE_WITH_PROJECT_UUID
+@revision = 0
+@sourceId = REPLACE_WITH_SOURCE_UUID
+@outlineId = REPLACE_WITH_OUTLINE_UUID
+@versionId = REPLACE_WITH_CONTENT_VERSION_UUID
+@publicationId = REPLACE_WITH_PUBLICATION_UUID
+
+### Public health
+GET {{baseUrl}}/health
+
+### Role aplikasi
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{token}}
+
+### Create project, simpan id dan revision dari respons
+POST {{baseUrl}}/ebooks
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "type": "EBOOK",
+  "title": "Pengantar UX Research",
+  "description": "Materi awal",
+  "learningGoal": "Memahami riset pengguna",
+  "audience": "Desainer pemula",
+  "targetLevel": "Beginner",
+  "language": "Indonesia",
+  "writingStyle": "Friendly",
+  "contentLength": "Short"
+}
+
+### Jalankan ini setelah SETIAP mutasi project/child, perbarui variabel revision
+GET {{baseUrl}}/ebooks/{{projectId}}
+Authorization: Bearer {{token}}
+
+### Tambah sumber yang disediakan author, simpan id sebagai sourceId
+POST {{baseUrl}}/ebooks/{{projectId}}/sources
+Authorization: Bearer {{token}}
+If-Match: {{revision}}
+Content-Type: application/json
+
+{
+  "title": "Catatan tim riset",
+  "publisher": "Tim penulis",
+  "url": "https://example.org/research",
+  "excerpt": "Ganti contoh ini dengan isi sumber yang kamu miliki."
+}
+
+### Simpan outline, simpan id sebagai outlineId
+POST {{baseUrl}}/ebooks/{{projectId}}/outlines
+Authorization: Bearer {{token}}
+If-Match: {{revision}}
+Content-Type: application/json
+
+{
+  "title": "Pengantar UX Research",
+  "learningOutcomes": ["Memahami peran riset"],
+  "chapters": [{"id":"chapter-1","title":"Pengantar","lessons":1}]
+}
+
+### Approve outline
+POST {{baseUrl}}/ebooks/{{projectId}}/outlines/{{outlineId}}/approve
+Authorization: Bearer {{token}}
+If-Match: {{revision}}
+
+### Simpan content version, simpan id sebagai versionId
+PUT {{baseUrl}}/ebooks/{{projectId}}/content
+Authorization: Bearer {{token}}
+If-Match: {{revision}}
+Content-Type: application/json
+
+{
+  "chapters": [{
+    "chapterId": "chapter-1",
+    "title": "Pengantar",
+    "blocks": [{
+      "id": "block-1",
+      "type": "paragraph",
+      "content": "Ganti dengan materi yang telah kamu tulis berdasarkan sumber.",
+      "sourceId": "{{sourceId}}",
+      "citationLabel": "[1]"
+    }]
+  }]
+}
+
+### Structural quality check
+POST {{baseUrl}}/ebooks/{{projectId}}/quality-check
+Authorization: Bearer {{token}}
+If-Match: {{revision}}
+
+### Lakukan review fakta dan kualitas secara manual sebelum mengirim request ini
+POST {{baseUrl}}/ebooks/{{projectId}}/approve
+Authorization: Bearer {{token}}
+If-Match: {{revision}}
+Content-Type: application/json
+
+{"contentVersionId":"{{versionId}}","humanReviewConfirmed":true}
+
+### Publish, simpan id sebagai publicationId
+POST {{baseUrl}}/ebooks/{{projectId}}/publish
+Authorization: Bearer {{token}}
+If-Match: {{revision}}
+
+### Library (ganti token dengan reader bila ingin menguji reader)
+GET {{baseUrl}}/library?page=0&size=20
+Authorization: Bearer {{token}}
+
+### Reader
+GET {{baseUrl}}/library/{{publicationId}}
+Authorization: Bearer {{token}}
+
+### Simpan progress user saat ini
+PUT {{baseUrl}}/library/{{publicationId}}/progress
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"contentVersionId":"{{versionId}}","chapterIndex":0,"completion":50}
+
+### Unpublish (token harus author pemilik)
+POST {{baseUrl}}/ebooks/{{projectId}}/unpublish
+Authorization: Bearer {{token}}
+If-Match: {{revision}}
