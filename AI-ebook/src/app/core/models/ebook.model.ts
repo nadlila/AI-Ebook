@@ -67,7 +67,8 @@ export interface EbookSummary {
   chapterCount: number;
 }
 
-export type ContentBlockType = 'heading' | 'paragraph' | 'list' | 'callout' | 'citation';
+export type ContentBlockType =
+  'heading' | 'paragraph' | 'list' | 'callout' | 'citation';
 
 export interface EditorBlock {
   id: string;
@@ -84,7 +85,8 @@ export interface EditorChapterContent {
   blocks: EditorBlock[];
 }
 
-export type GenerationChapterStatus = 'completed' | 'generating' | 'pending' | 'failed';
+export type GenerationChapterStatus =
+  'completed' | 'generating' | 'pending' | 'failed';
 
 export interface GenerationChapterState {
   chapterId: string;
@@ -126,6 +128,12 @@ export interface QualityCheckResult {
 }
 
 export interface Ebook extends EbookSummary {
+  sources?: Array<{
+    id: string;
+    title: string;
+    url: string;
+    publisher: string;
+  }>;
   description?: string;
   learningGoal?: string;
   targetLevel?: EbookTargetLevel;

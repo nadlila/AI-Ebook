@@ -16,25 +16,71 @@ import { AuthService } from '../../../../core/services/auth.service';
         <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
           <div class="field">
             <span class="field-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8" />
-                <path d="M4 19C5.8 15.9 8.5 14.5 12 14.5C15.5 14.5 18.2 15.9 20 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle
+                  cx="12"
+                  cy="8"
+                  r="4"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                />
+                <path
+                  d="M4 19C5.8 15.9 8.5 14.5 12 14.5C15.5 14.5 18.2 15.9 20 19"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                />
               </svg>
             </span>
-            <input type="text" formControlName="email" placeholder="Username" autocomplete="username" />
+            <input
+              type="text"
+              formControlName="email"
+              placeholder="Username"
+              autocomplete="username"
+            />
           </div>
 
           <div class="field">
             <span class="field-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="5" y="10" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.8" />
-                <path d="M8 10V7.5C8 5.567 9.567 4 11.5 4H12.5C14.433 4 16 5.567 16 7.5V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <rect
+                  x="5"
+                  y="10"
+                  width="14"
+                  height="10"
+                  rx="2"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                />
+                <path
+                  d="M8 10V7.5C8 5.567 9.567 4 11.5 4H12.5C14.433 4 16 5.567 16 7.5V10"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                />
               </svg>
             </span>
-            <input type="password" formControlName="password" placeholder="Password" autocomplete="current-password" />
+            <input
+              type="password"
+              formControlName="password"
+              placeholder="Password"
+              autocomplete="current-password"
+            />
           </div>
 
-          <button type="submit" class="primary-btn" [disabled]="form.invalid || isSubmitting">
+          <button
+            type="submit"
+            class="primary-btn"
+            [disabled]="form.invalid || isSubmitting"
+          >
             {{ isSubmitting ? 'Logging in...' : 'Login' }}
           </button>
         </form>
@@ -163,8 +209,8 @@ import { AuthService } from '../../../../core/services/auth.service';
           font-size: 1.8rem;
         }
       }
-    `
-  ]
+    `,
+  ],
 })
 export class LoginPageComponent {
   private readonly fb = inject(FormBuilder);
@@ -173,7 +219,7 @@ export class LoginPageComponent {
 
   form = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, Validators.minLength(6)]]
+    password: ['', [Validators.required, Validators.minLength(6)]],
   });
 
   isSubmitting = false;
@@ -187,9 +233,16 @@ export class LoginPageComponent {
     this.isSubmitting = true;
     this.authService.login(this.form.getRawValue()).subscribe({
       next: () => this.router.navigateByUrl('/dashboard'),
-      error: () => {
+      error: (error) => {
+        window.alert(
+          error.error?.msg ||
+            error.error?.error_description ||
+            error.error?.detail ||
+            error.message ||
+            'Login gagal.',
+        );
         this.isSubmitting = false;
-      }
+      },
     });
   }
 }

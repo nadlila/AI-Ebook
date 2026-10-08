@@ -16,12 +16,24 @@ import { AuthService } from '../../../../core/services/auth.service';
           <input type="text" formControlName="name" placeholder="Your name" />
 
           <label>Email</label>
-          <input type="email" formControlName="email" placeholder="you@example.com" />
+          <input
+            type="email"
+            formControlName="email"
+            placeholder="you@example.com"
+          />
 
           <label>Password</label>
-          <input type="password" formControlName="password" placeholder="••••••••" />
+          <input
+            type="password"
+            formControlName="password"
+            placeholder="••••••••"
+          />
 
-          <button type="submit" class="primary-btn" [disabled]="form.invalid || isSubmitting">
+          <button
+            type="submit"
+            class="primary-btn"
+            [disabled]="form.invalid || isSubmitting"
+          >
             {{ isSubmitting ? 'Creating account...' : 'Create account' }}
           </button>
         </form>
@@ -92,8 +104,8 @@ import { AuthService } from '../../../../core/services/auth.service';
         font-weight: 700;
         text-decoration: none;
       }
-    `
-  ]
+    `,
+  ],
 })
 export class RegisterPageComponent {
   private readonly fb = inject(FormBuilder);
@@ -103,7 +115,7 @@ export class RegisterPageComponent {
   form = this.fb.nonNullable.group({
     name: ['', [Validators.required]],
     email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, Validators.minLength(6)]]
+    password: ['', [Validators.required, Validators.minLength(6)]],
   });
 
   isSubmitting = false;
@@ -117,9 +129,16 @@ export class RegisterPageComponent {
     this.isSubmitting = true;
     this.authService.register(this.form.getRawValue()).subscribe({
       next: () => this.router.navigateByUrl('/dashboard'),
-      error: () => {
+      error: (error) => {
+        window.alert(
+          error.error?.msg ||
+            error.error?.error_description ||
+            error.error?.detail ||
+            error.message ||
+            'Login gagal.',
+        );
         this.isSubmitting = false;
-      }
+      },
     });
   }
 }

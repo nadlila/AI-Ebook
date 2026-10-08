@@ -1,3 +1,6 @@
+import { inject } from '@angular/core';
+import { Router, CanActivateFn } from '@angular/router';
+import { AuthService } from './core/services/auth.service';
 import { Routes } from '@angular/router';
 import { AppShellComponent } from './shared/components/app-shell/app-shell.component';
 import { LoginPageComponent } from './features/auth/pages/login-page/login-page.component';
@@ -15,26 +18,69 @@ import { QualityCheckPageComponent } from './features/ebook/quality/pages/qualit
 import { ReaderPageComponent } from './features/reader/pages/reader-page/reader-page.component';
 import { EbookDetailPageComponent } from './features/ebook/detail/pages/ebook-detail-page/ebook-detail-page.component';
 
+const signedIn: CanActivateFn = () =>
+  inject(AuthService).isAuthenticated() ||
+  inject(Router).createUrlTree(['/login']);
+const author: CanActivateFn = () =>
+  inject(AuthService).getSession()?.role === 'AUTHOR' ||
+  inject(Router).createUrlTree(['/dashboard']);
 export const routes: Routes = [
   { path: 'login', component: LoginPageComponent },
   { path: 'register', component: RegisterPageComponent },
   {
     path: '',
     component: AppShellComponent,
+    canActivate: [signedIn],
     children: [
       { path: 'dashboard', component: DashboardPageComponent },
       { path: 'ebooks/:id/detail', component: EbookDetailPageComponent },
-      { path: 'ebooks/create', component: CreateEbookPageComponent },
-      { path: 'ebooks/create/preferences', component: LearningPreferencesPageComponent },
-      { path: 'ebooks/:id/research', component: ResearchProgressPageComponent },
-      { path: 'ebooks/:id/sources', component: SourceReviewPageComponent },
-      { path: 'ebooks/:id/learning-plan', component: LearningPlanPageComponent },
-      { path: 'ebooks/:id/outline', component: OutlinePageComponent },
-      { path: 'ebooks/:id/generation', component: GenerationPageComponent },
-      { path: 'ebooks/:id/editor', component: EditorPageComponent },
-      { path: 'ebooks/:id/quality-check', component: QualityCheckPageComponent },
+      {
+        path: 'ebooks/create',
+        component: CreateEbookPageComponent,
+        canActivate: [author],
+      },
+      {
+        path: 'ebooks/create/preferences',
+        component: LearningPreferencesPageComponent,
+        canActivate: [author],
+      },
+      {
+        path: 'ebooks/:id/research',
+        component: ResearchProgressPageComponent,
+        canActivate: [author],
+      },
+      {
+        path: 'ebooks/:id/sources',
+        component: SourceReviewPageComponent,
+        canActivate: [author],
+      },
+      {
+        path: 'ebooks/:id/learning-plan',
+        component: LearningPlanPageComponent,
+        canActivate: [author],
+      },
+      {
+        path: 'ebooks/:id/outline',
+        component: OutlinePageComponent,
+        canActivate: [author],
+      },
+      {
+        path: 'ebooks/:id/generation',
+        component: GenerationPageComponent,
+        canActivate: [author],
+      },
+      {
+        path: 'ebooks/:id/editor',
+        component: EditorPageComponent,
+        canActivate: [author],
+      },
+      {
+        path: 'ebooks/:id/quality-check',
+        component: QualityCheckPageComponent,
+        canActivate: [author],
+      },
       { path: 'ebooks/:id/reader', component: ReaderPageComponent },
-      { path: '', redirectTo: '/login', pathMatch: 'full' }
-    ]
-  }
+      { path: '', redirectTo: '/login', pathMatch: 'full' },
+    ],
+  },
 ];

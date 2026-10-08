@@ -28,9 +28,11 @@ import { Ebook } from '../../../../core/models/ebook.model';
                 class="chapter-item"
                 *ngFor="let chapter of chapters; let i = index"
                 [class.active]="selectedIndex === i"
-                (click)="selectedIndex = i"
+                (click)="selectedIndex = i; persistProgress()"
               >
-                <span class="chap-num">{{ (i + 1).toString().padStart(2, '0') }}</span>
+                <span class="chap-num">{{
+                  (i + 1).toString().padStart(2, '0')
+                }}</span>
                 <strong class="chap-title">{{ chapter.title }}</strong>
               </button>
             </div>
@@ -47,17 +49,49 @@ import { Ebook } from '../../../../core/models/ebook.model';
                     <ul *ngSwitchCase="'list'">
                       <li *ngFor="let item of block.items || []">{{ item }}</li>
                     </ul>
-                    <div *ngSwitchCase="'callout'" class="callout">{{ block.content }}</div>
-                    <div *ngSwitchCase="'citation'" class="citation-inline">[{{ block.citationLabel || '1' }}]</div>
+                    <div *ngSwitchCase="'callout'" class="callout">
+                      {{ block.content }}
+                    </div>
+                    <div *ngSwitchCase="'citation'" class="citation-inline">
+                      {{ block.citationLabel || '[ref]' }} {{ block.content }}
+                    </div>
                   </ng-container>
                 </div>
               </div>
+              <section *ngIf="ebook?.sources?.length">
+                <h3>Referensi</h3>
+                <p *ngFor="let source of ebook?.sources">
+                  <a
+                    [href]="source.url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >{{ source.title }}</a
+                  >
+                  — {{ source.publisher }}
+                </p>
+              </section>
             </div>
 
             <div class="pager">
-              <button type="button" class="pager-btn" (click)="prevChapter()" [disabled]="selectedIndex === 0">Previous</button>
-              <div class="progress-info">Chapter {{ selectedIndex + 1 }} of {{ chapters.length }}</div>
-              <button type="button" class="pager-btn" (click)="nextChapter()" [disabled]="selectedIndex === chapters.length - 1">Next</button>
+              <button
+                type="button"
+                class="pager-btn"
+                (click)="prevChapter()"
+                [disabled]="selectedIndex === 0"
+              >
+                Previous
+              </button>
+              <div class="progress-info">
+                Chapter {{ selectedIndex + 1 }} of {{ chapters.length }}
+              </div>
+              <button
+                type="button"
+                class="pager-btn"
+                (click)="nextChapter()"
+                [disabled]="selectedIndex === chapters.length - 1"
+              >
+                Next
+              </button>
             </div>
           </main>
         </div>
@@ -86,7 +120,7 @@ import { Ebook } from '../../../../core/models/ebook.model';
         background: #f9f8f6;
         border-radius: 24px;
         padding: 24px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
         display: flex;
         flex-direction: column;
         height: 90vh;
@@ -109,7 +143,9 @@ import { Ebook } from '../../../../core/models/ebook.model';
         gap: 8px;
         font-size: 0.95rem;
       }
-      .header-placeholder { width: 100px; }
+      .header-placeholder {
+        width: 100px;
+      }
       h2 {
         margin: 0;
         font-size: 1.1rem;
@@ -156,10 +192,23 @@ import { Ebook } from '../../../../core/models/ebook.model';
         cursor: pointer;
         transition: background 0.2s;
       }
-      .chapter-item:hover { background: #eeebe7; }
-      .chapter-item.active { background: #e8e6e3; }
-      .chap-num { font-weight: 700; font-size: 0.85rem; color: #1a1a1a; min-width: 20px; }
-      .chap-title { font-size: 0.95rem; color: #1a1a1a; font-weight: 600; }
+      .chapter-item:hover {
+        background: #eeebe7;
+      }
+      .chapter-item.active {
+        background: #e8e6e3;
+      }
+      .chap-num {
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: #1a1a1a;
+        min-width: 20px;
+      }
+      .chap-title {
+        font-size: 0.95rem;
+        color: #1a1a1a;
+        font-weight: 600;
+      }
 
       .book-panel {
         background: white;
@@ -187,7 +236,9 @@ import { Ebook } from '../../../../core/models/ebook.model';
         color: #333;
         text-align: justify;
       }
-      .block { margin-bottom: 20px; }
+      .block {
+        margin-bottom: 20px;
+      }
       .callout {
         background: #f9f8f6;
         border-left: 4px solid #1a1a1a;
@@ -212,8 +263,15 @@ import { Ebook } from '../../../../core/models/ebook.model';
         font-weight: 600;
         cursor: pointer;
       }
-      .pager-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-      .progress-info { font-size: 0.9rem; font-weight: 500; color: #666; }
+      .pager-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+      .progress-info {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #666;
+      }
       .empty-state {
         height: 300px;
         display: flex;
@@ -222,12 +280,18 @@ import { Ebook } from '../../../../core/models/ebook.model';
         font-weight: 500;
       }
       @media (max-width: 900px) {
-        .reader-layout { grid-template-columns: 1fr; }
-        .content-panel { display: none; }
-        .scroll-container { padding: 30px 20px; }
+        .reader-layout {
+          grid-template-columns: 1fr;
+        }
+        .content-panel {
+          display: none;
+        }
+        .scroll-container {
+          padding: 30px 20px;
+        }
       }
-    `
-  ]
+    `,
+  ],
 })
 export class ReaderPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
@@ -249,7 +313,10 @@ export class ReaderPageComponent implements OnInit {
       this.ebook = result;
       this.chapters = result?.editorContent ?? [];
       const savedIndex = result?.lastReadChapterIndex ?? 0;
-      this.selectedIndex = Math.min(savedIndex, Math.max(0, this.chapters.length - 1));
+      this.selectedIndex = Math.min(
+        savedIndex,
+        Math.max(0, this.chapters.length - 1),
+      );
     });
   }
 
@@ -275,8 +342,12 @@ export class ReaderPageComponent implements OnInit {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id || !this.chapters.length) return;
 
-    const progress = Math.round(((this.selectedIndex + 1) / this.chapters.length) * 100);
-    this.ebookService.updateReadingProgress(id, this.selectedIndex, progress).subscribe();
+    const progress = Math.round(
+      ((this.selectedIndex + 1) / this.chapters.length) * 100,
+    );
+    this.ebookService
+      .updateReadingProgress(id, this.selectedIndex, progress)
+      .subscribe();
   }
 
   goBack(): void {

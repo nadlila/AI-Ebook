@@ -1,8 +1,12 @@
+import { AuthService } from '../../../../core/services/auth.service';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { EbookService } from '../../../../core/services/ebook.service';
-import { DashboardSnapshot, EbookSummary } from '../../../../core/models/ebook.model';
+import {
+  DashboardSnapshot,
+  EbookSummary,
+} from '../../../../core/models/ebook.model';
 
 @Component({
   selector: 'app-dashboard-page',
@@ -16,18 +20,31 @@ import { DashboardSnapshot, EbookSummary } from '../../../../core/models/ebook.m
 
         <div class="cta-box">
           <span>Turn a topic into E-book.</span>
-          <button class="primary-btn" routerLink="/ebooks/create">Start Creating</button>
+          <button
+            class="primary-btn"
+            *ngIf="auth.getSession()?.role === 'AUTHOR'"
+            routerLink="/ebooks/create"
+          >
+            Start Creating
+          </button>
         </div>
       </div>
 
       <div class="section-card">
         <h3>Continuing reading</h3>
         <div class="reading-card" *ngIf="data.continueReading; else noReading">
-          <img [src]="data.continueReading.coverImage" [alt]="data.continueReading.title" />
+          <img
+            [src]="data.continueReading.coverImage"
+            [alt]="data.continueReading.title"
+          />
           <div class="meta">
             <div class="title">{{ data.continueReading.title }}</div>
-            <div class="stats">{{ data.continueReading.chapterCount }} Chapters</div>
-            <div class="progress">{{ data.continueReading.readingProgress }}% completed</div>
+            <div class="stats">
+              {{ data.continueReading.chapterCount }} Chapters
+            </div>
+            <div class="progress">
+              {{ data.continueReading.readingProgress }}% completed
+            </div>
           </div>
         </div>
         <ng-template #noReading>
@@ -38,16 +55,36 @@ import { DashboardSnapshot, EbookSummary } from '../../../../core/models/ebook.m
       <div class="section-card">
         <h3>My Library</h3>
         <div class="ebook-grid">
-            <article class="ebook-item" *ngFor="let item of readyBooks(data.recentEbooks)" (click)="openEbook(item)" tabindex="0" (keydown.enter)="openEbook(item)">
+          <article
+            class="ebook-item"
+            *ngFor="let item of readyBooks(data.recentEbooks)"
+            (click)="openEbook(item)"
+            tabindex="0"
+            (keydown.enter)="openEbook(item)"
+          >
             <img [src]="item.coverImage" [alt]="item.title" />
             <div class="book-title">{{ item.title }}</div>
             <div class="book-meta">{{ item.chapterCount }} Chapters</div>
-            <div class="book-meta" *ngIf="isInProgress(item)">{{ item.creationProgress }}% completed</div>
-            <div class="book-meta" *ngIf="!isInProgress(item)">{{ item.readingProgress }}% reading progress</div>
-            <button class="resume-btn" *ngIf="isInProgress(item)" type="button" (click)="$event.stopPropagation(); resume(item)">
+            <div class="book-meta" *ngIf="isInProgress(item)">
+              {{ item.creationProgress }}% completed
+            </div>
+            <div class="book-meta" *ngIf="!isInProgress(item)">
+              {{ item.readingProgress }}% reading progress
+            </div>
+            <button
+              class="resume-btn"
+              *ngIf="isInProgress(item)"
+              type="button"
+              (click)="$event.stopPropagation(); resume(item)"
+            >
               Continue Creating
             </button>
-            <button class="resume-btn" *ngIf="!isInProgress(item)" type="button" (click)="$event.stopPropagation(); continueReading(item)">
+            <button
+              class="resume-btn"
+              *ngIf="!isInProgress(item)"
+              type="button"
+              (click)="$event.stopPropagation(); continueReading(item)"
+            >
               Continue Reading
             </button>
           </article>
@@ -57,13 +94,42 @@ import { DashboardSnapshot, EbookSummary } from '../../../../core/models/ebook.m
       <div class="section-card">
         <h3>My Draft</h3>
         <div class="ebook-grid">
-          <article class="ebook-item" *ngFor="let item of draftBooks(data.recentEbooks)" (click)="openEbook(item)">
+          <article
+            class="ebook-item"
+            *ngFor="let item of draftBooks(data.recentEbooks)"
+            (click)="openEbook(item)"
+          >
             <img [src]="item.coverImage" [alt]="item.title" />
-            <div class="book-title">{{ item.title }}</div><div class="book-meta">{{ item.chapterCount }} Chapters</div>
-            <div class="book-meta">{{ item.status === 'READY_TO_READ' ? 'Reading' : draftStage(item) }}</div>
-            <div class="book-meta">{{ item.status === 'READY_TO_READ' ? item.readingProgress : item.creationProgress }}%</div>
-            <button class="resume-btn" *ngIf="item.status !== 'READY_TO_READ'" type="button" (click)="$event.stopPropagation(); resume(item)">Continue Creating</button>
-            <button class="resume-btn" *ngIf="item.status === 'READY_TO_READ'" type="button" (click)="$event.stopPropagation(); continueReading(item)">Continue Reading</button>
+            <div class="book-title">{{ item.title }}</div>
+            <div class="book-meta">{{ item.chapterCount }} Chapters</div>
+            <div class="book-meta">
+              {{
+                item.status === 'READY_TO_READ' ? 'Reading' : draftStage(item)
+              }}
+            </div>
+            <div class="book-meta">
+              {{
+                item.status === 'READY_TO_READ'
+                  ? item.readingProgress
+                  : item.creationProgress
+              }}%
+            </div>
+            <button
+              class="resume-btn"
+              *ngIf="item.status !== 'READY_TO_READ'"
+              type="button"
+              (click)="$event.stopPropagation(); resume(item)"
+            >
+              Continue Creating
+            </button>
+            <button
+              class="resume-btn"
+              *ngIf="item.status === 'READY_TO_READ'"
+              type="button"
+              (click)="$event.stopPropagation(); continueReading(item)"
+            >
+              Continue Reading
+            </button>
           </article>
         </div>
       </div>
@@ -98,13 +164,15 @@ import { DashboardSnapshot, EbookSummary } from '../../../../core/models/ebook.m
         margin: 22px auto 0;
         border: 1px solid #d9d4cf;
         border-radius: 12px;
-        background: #F7F7F5;
+        background: #f7f7f5;
         padding: 18px 16px;
         display: flex;
         flex-direction: column;
         gap: 14px;
       }
-      .primary-btn, .secondary-btn, .resume-btn {
+      .primary-btn,
+      .secondary-btn,
+      .resume-btn {
         border: 0;
         border-radius: 10px;
         font-weight: 700;
@@ -130,8 +198,8 @@ import { DashboardSnapshot, EbookSummary } from '../../../../core/models/ebook.m
         width: 100%;
       }
       .section-card {
-        background: #F0F0EE;
-        border: 1px solid #E5E5E5;
+        background: #f0f0ee;
+        border: 1px solid #e5e5e5;
         border-radius: 18px;
         padding: 18px 18px 24px;
       }
@@ -162,7 +230,8 @@ import { DashboardSnapshot, EbookSummary } from '../../../../core/models/ebook.m
       .title {
         font-weight: 700;
       }
-      .stats, .progress {
+      .stats,
+      .progress {
         color: #666;
       }
       .ebook-grid {
@@ -172,7 +241,7 @@ import { DashboardSnapshot, EbookSummary } from '../../../../core/models/ebook.m
       }
       .ebook-item {
         width: 100%;
-        background: #F7F7F5;
+        background: #f7f7f5;
         border: 1px solid #d7d2cf;
         border-radius: 0 18px 0 18px;
         overflow: hidden;
@@ -185,7 +254,7 @@ import { DashboardSnapshot, EbookSummary } from '../../../../core/models/ebook.m
         height: 180px;
         object-fit: cover;
         display: block;
-        border-radius:  0 14px  0 14px;
+        border-radius: 0 14px 0 14px;
       }
       .book-title {
         margin: 8px 0 0;
@@ -223,15 +292,16 @@ import { DashboardSnapshot, EbookSummary } from '../../../../core/models/ebook.m
           grid-template-columns: repeat(2, minmax(140px, 1fr));
         }
       }
-    `
-  ]
+    `,
+  ],
 })
 export class DashboardPageComponent implements OnInit {
   snapshot: DashboardSnapshot | null = null;
 
   constructor(
     private readonly ebookService: EbookService,
-    private readonly router: Router
+    readonly auth: AuthService,
+    private readonly router: Router,
   ) {}
 
   ngOnInit(): void {
@@ -254,15 +324,26 @@ export class DashboardPageComponent implements OnInit {
 
   draftStage(item: EbookSummary): string {
     const stages: Record<string, string> = {
-      BASIC_INFORMATION: 'Creation', CREATE_EBOOK: 'Creation', LEARNING_PREFERENCES: 'Creation',
-      RESEARCH: 'Research', SOURCE_REVIEW: 'Source / Research', LEARNING_PLAN: 'Source / Research',
-      OUTLINE: 'Outline', OUTLINE_APPROVAL: 'Outline', GENERATION: 'Generation', EDITOR: 'Editor', QUALITY_CHECK: 'Editor'
+      BASIC_INFORMATION: 'Creation',
+      CREATE_EBOOK: 'Creation',
+      LEARNING_PREFERENCES: 'Creation',
+      RESEARCH: 'Research',
+      SOURCE_REVIEW: 'Source / Research',
+      LEARNING_PLAN: 'Source / Research',
+      OUTLINE: 'Outline',
+      OUTLINE_APPROVAL: 'Outline',
+      GENERATION: 'Generation',
+      EDITOR: 'Editor',
+      QUALITY_CHECK: 'Editor',
     };
     return stages[item.currentStep] || 'Creation';
   }
 
   resume(item: EbookSummary): void {
-    const route = this.ebookService.getResumeRoute({ id: item.id, currentStep: item.currentStep });
+    const route = this.ebookService.getResumeRoute({
+      id: item.id,
+      currentStep: item.currentStep,
+    });
     this.router.navigateByUrl(route);
   }
 

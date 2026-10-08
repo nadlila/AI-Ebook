@@ -26,6 +26,7 @@ class BackendIntegrationTest {
   @Autowired ObjectMapper json;
   @Autowired ProfileRepository profiles;
   @MockitoBean JwtDecoder decoder;
+  @MockitoBean com.thinkerlab.backend.service.GeminiService gemini;
   UUID author = UUID.randomUUID(), reader = UUID.randomUUID(), stranger = UUID.randomUUID();
 
   @BeforeEach
@@ -344,5 +345,93 @@ class BackendIntegrationTest {
                 .header("Origin", "https://evil.example")
                 .header("Access-Control-Request-Method", "POST"))
         .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void aiRequiresOwnershipSourcesAndApproval() throws Exception {
+    String id = create().get("id").asText();
+    call(mutate(id, "/ai/outline", ""), reader, 403);
+    call(mutate(id, "/ai/outline", ""), stranger, 404);
+    call(mutate(id, "/ai/outline", ""), author, 409);
+    source(id);
+    call(mutate(id, "/ai/content", ""), author, 409);
+    org.mockito.Mockito.verifyNoInteractions(gemini);
+  }
+
+  @Test
+  void aiOutlineAndContentPersistAndRepeatedGenerationDoesNotOverwrite() throws Exception {
+    String id = create().get("id").asText();
+    String sid = source(id);
+    var outline =
+        new com.thinkerlab.backend.api.request.OutlineInput(
+            "Test",
+            List.of("Understand"),
+            List.of(new com.thinkerlab.backend.api.model.Chapter("chapter-1", "Basics", 1)));
+    org.mockito.Mockito.when(
+            gemini.generate(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.eq(
+                    com.thinkerlab.backend.api.request.OutlineInput.class)))
+        .thenReturn(outline);
+    var o = call(mutate(id, "/ai/outline", ""), author, 200);
+    call(mutate(id, "/outlines/" + o.get("id").asText() + "/approve", ""), author, 200);
+    var content =
+        new com.thinkerlab.backend.api.request.ContentInput(
+            List.of(
+                new com.thinkerlab.backend.api.model.ChapterContent(
+                    "chapter-1",
+                    "Basics",
+                    List.of(
+                        new com.thinkerlab.backend.api.model.Block(
+                            "b1",
+                            Types.BlockType.paragraph,
+                            "Supported text",
+                            null,
+                            UUID.fromString(sid),
+                            "[1]")))));
+    org.mockito.Mockito.when(
+            gemini.generate(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.eq(
+                    com.thinkerlab.backend.api.request.ContentInput.class)))
+        .thenReturn(content);
+    var first = call(mutate(id, "/ai/content", ""), author, 200);
+    var again = call(mutate(id, "/ai/content", ""), author, 200);
+    assertThat(again.get("id")).isEqualTo(first.get("id"));
+    assertThat(
+            call(get("/api/ebooks/" + id + "/content"), author, 200)
+                .path("content")
+                .path("chapters")
+                .size())
+        .isEqualTo(1);
+    org.mockito.Mockito.verify(gemini, org.mockito.Mockito.times(1))
+        .generate(
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.eq(com.thinkerlab.backend.api.request.ContentInput.class));
+  }
+
+  @Test
+  void invalidAiContentDoesNotCreateVersion() throws Exception {
+    String id = create().get("id").asText();
+    source(id);
+    outline(id);
+    var invalid =
+        new com.thinkerlab.backend.api.request.ContentInput(
+            List.of(
+                new com.thinkerlab.backend.api.model.ChapterContent(
+                    "wrong-chapter",
+                    "Invalid",
+                    List.of(
+                        new com.thinkerlab.backend.api.model.Block(
+                            "b", Types.BlockType.paragraph, "text", null, null, null)))));
+    org.mockito.Mockito.when(
+            gemini.generate(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.eq(
+                    com.thinkerlab.backend.api.request.ContentInput.class)))
+        .thenReturn(invalid);
+    call(mutate(id, "/ai/content", ""), author, 400);
+    assertThat(call(get("/api/ebooks/" + id), author, 200).get("currentVersionId").isNull())
+        .isTrue();
   }
 }

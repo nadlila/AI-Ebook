@@ -1,3 +1,4 @@
+import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -7,13 +8,15 @@ import { EbookService } from '../../../../core/services/ebook.service';
 @Component({
   selector: 'app-editor-page',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="editor-container">
       <header class="editor-header">
         <button class="header-btn" (click)="goBack()">Project</button>
         <h1 class="book-title">{{ bookTitle }}</h1>
-        <button class="header-btn save-btn" (click)="saveAndContinue()">Save</button>
+        <button class="header-btn save-btn" (click)="saveAndContinue()">
+          Save
+        </button>
       </header>
 
       <div class="editor-layout">
@@ -27,7 +30,9 @@ import { EbookService } from '../../../../core/services/ebook.service';
               [class.active]="selectedIndex === i"
               (click)="selectedIndex = i"
             >
-              <span class="chapter-number">{{ (i + 1).toString().padStart(2, '0') }}</span>
+              <span class="chapter-number">{{
+                (i + 1).toString().padStart(2, '0')
+              }}</span>
               <span class="chapter-name">{{ chapter.title }}</span>
             </div>
           </div>
@@ -38,30 +43,47 @@ import { EbookService } from '../../../../core/services/ebook.service';
           <div class="page-content" *ngIf="selectedChapter">
             <h2 class="chapter-title">{{ selectedChapter.title }}</h2>
             <div class="content-blocks">
-              <div class="block" *ngFor="let block of selectedChapter.blocks; trackBy: trackByBlockId">
-                <ng-container [ngSwitch]="block.type">
-                  <h4 *ngSwitchCase="'heading'">{{ block.content }}</h4>
-                  <p *ngSwitchCase="'paragraph'">{{ block.content }}</p>
-                  <ul *ngSwitchCase="'list'">
-                    <li *ngFor="let item of block.items || []">{{ item }}</li>
-                  </ul>
-                  <div *ngSwitchCase="'callout'" class="callout">{{ block.content }}</div>
-                </ng-container>
+              <div
+                class="block"
+                *ngFor="
+                  let block of selectedChapter.blocks;
+                  trackBy: trackByBlockId
+                "
+              >
+                <label
+                  >{{ block.type
+                  }}<textarea
+                    [(ngModel)]="block.content"
+                    rows="4"
+                    style="width:100%;padding:10px"
+                  ></textarea>
+                </label>
+                <div *ngIf="block.items">
+                  <input
+                    *ngFor="
+                      let item of block.items;
+                      let i = index;
+                      trackBy: trackByIndex
+                    "
+                    [(ngModel)]="block.items[i]"
+                    style="width:100%;margin:4px 0"
+                  />
+                </div>
+                <small *ngIf="block.type === 'citation'"
+                  >{{ block.citationLabel }} · {{ block.sourceId }}</small
+                >
               </div>
             </div>
             <div class="page-number">[{{ selectedIndex + 1 }}]</div>
           </div>
         </main>
 
-        <!-- AI Tools Sidebar -->
         <aside class="sidebar right-sidebar">
-          <h2>AI TOOLS</h2>
-          <div class="ai-buttons">
-            <button (click)="applyTool('Simplify')">Simplify</button>
-            <button (click)="applyTool('Expand')">Expand</button>
-            <button (click)="applyTool('Rewrite')">Rewrite</button>
-            <button (click)="applyTool('Regenerate')">Regenerate</button>
-          </div>
+          <h2>Review penulis</h2>
+          <p>
+            Periksa fakta dan referensi. Kamu bisa mengedit teks sebelum
+            menyimpan versi baru.
+          </p>
         </aside>
       </div>
     </div>
@@ -79,7 +101,7 @@ import { EbookService } from '../../../../core/services/ebook.service';
         background-color: #f9f8f6;
         border-radius: 24px;
         padding: 30px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
         max-width: 1200px;
         margin: 0 auto;
       }
@@ -212,68 +234,18 @@ import { EbookService } from '../../../../core/services/ebook.service';
           grid-template-columns: 1fr;
         }
       }
-    `
-  ]
+    `,
+  ],
 })
 export class EditorPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly ebookService = inject(EbookService);
 
-  bookTitle = 'UI/UX for Beginners';
+  bookTitle = 'Memuat ebook…';
   selectedIndex = 0;
 
-  chapters: EditorChapterContent[] = [
-    {
-      chapterId: '1',
-      title: 'Introduction to UI/UX',
-      blocks: [
-        {
-          id: 'b1',
-          type: 'paragraph',
-          content: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum egestas eget tellus quis dui convallis interdum quis leo. Vestibulum tincidunt nisi non enim pellentesque, sit amet mattis orci tristique. Duis accumsan, turpis vel congue pharetra, odio dolor viverra lacus, feugiat finibus ante elit a risus.'
-        },
-        {
-          id: 'b2',
-          type: 'paragraph',
-          content: 'Morbi dapibus massa non dapibus elementum. Donec placerat semper nunc sit amet sagittis. Cras malesuada vitae est vel aliquam. Aliquam porta risus felis, quis sodales diam maximus vel. Phasellus vehicula velit a lacus scelerisque, egestas maximus diam auctor. Integer tellus tortor, faucibus at massa et, suscipit convallis urna. Sed tincidunt ipsum id sapien cursus vulputate. Phasellus at ante iaculis, vestibulum lorem eu, pellentesque lacus. Mauris efficitur luctus sapien, id vehicula mauris elementum nec. Donec ac ante hendrerit, elementum nulla vel, pulvinar metus.'
-        },
-        {
-          id: 'b3',
-          type: 'paragraph',
-          content: 'Aenean venenatis elementum pellentesque. Curabitur aliquet libero eu odio tincidunt dictum. Aenean placerat sed sapien vel facilisis. In hac habitasse platea dictumst. Vivamus ac condimentum arcu. Fusce ac magna in quam egestas feugiat. Pellentesque quis sem facilisis, scelerisque risus sed, lobortis dui. Ut facilisis tristique velit sit amet malesuada. Nulla dictum, magna eu tincidunt placerat, sit magna malesuada urna, a accumsan purus ante at massa. Donec ac ante hendrerit, elementum nulla vel, pulvinar metus.'
-        }
-      ]
-    },
-    {
-      chapterId: '2',
-      title: 'Understanding Users',
-      blocks: [
-        { id: 'b4', type: 'paragraph', content: 'Content for Understanding Users chapter goes here...' }
-      ]
-    },
-    {
-      chapterId: '3',
-      title: 'User Research',
-      blocks: [
-        { id: 'b5', type: 'paragraph', content: 'Content for User Research chapter goes here...' }
-      ]
-    },
-    {
-      chapterId: '4',
-      title: 'Wireframing',
-      blocks: [
-        { id: 'b6', type: 'paragraph', content: 'Content for Wireframing chapter goes here...' }
-      ]
-    },
-    {
-      chapterId: '5',
-      title: 'Prototyping',
-      blocks: [
-        { id: 'b7', type: 'paragraph', content: 'Content for Prototyping chapter goes here...' }
-      ]
-    }
-  ];
+  chapters: EditorChapterContent[] = [];
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -282,7 +254,9 @@ export class EditorPageComponent implements OnInit {
       return;
     }
 
-    // Attempt to load real content, but fallback to our mock content if service is empty
+    this.ebookService
+      .getEbookById(id)
+      .subscribe((e) => (this.bookTitle = e.title));
     this.ebookService.getEditorContent(id).subscribe((result) => {
       if (result && result.length > 0) {
         this.chapters = result;
@@ -294,6 +268,10 @@ export class EditorPageComponent implements OnInit {
     return this.chapters[this.selectedIndex];
   }
 
+  trackByIndex(index: number): number {
+    return index;
+  }
+
   trackByBlockId(index: number, block: { id: string }): string {
     return block.id;
   }
@@ -302,20 +280,9 @@ export class EditorPageComponent implements OnInit {
     this.router.navigate(['/dashboard']);
   }
 
-  applyTool(tool: string): void {
-    // Simulate AI tool application
-    const chapter = this.selectedChapter;
-    if (chapter && chapter.blocks.length > 0) {
-      const firstBlock = chapter.blocks.find(b => b.type === 'paragraph');
-      if (firstBlock) {
-        firstBlock.content = `${firstBlock.content} (${tool} applied)`;
-      }
-    }
-  }
-
   saveAndContinue(): void {
     const id = this.route.snapshot.paramMap.get('id');
-    if (!id) return;
+    if (!id || !this.chapters.length) return;
 
     this.ebookService.saveEditorContent(id, this.chapters).subscribe(() => {
       this.router.navigate(['/ebooks', id, 'quality-check']);

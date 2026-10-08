@@ -1,3 +1,6 @@
+import { inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { AuthService } from '../../../core/services/auth.service';
 import { Component } from '@angular/core';
 import { RouterLink, RouterOutlet } from '@angular/router';
 
@@ -17,9 +20,16 @@ import { RouterLink, RouterOutlet } from '@angular/router';
         </div>
 
         <div class="topbar-actions">
+          <span
+            >{{ auth.getSession()?.user?.name }} ·
+            {{ auth.getSession()?.role }}</span
+          >
+          <button (click)="logout()">Keluar</button>
           <button class="profile-btn">
             <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+              <path
+                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"
+              />
             </svg>
           </button>
         </div>
@@ -40,7 +50,10 @@ import { RouterLink, RouterOutlet } from '@angular/router';
         min-height: 100vh;
         background: #ffffff;
         color: #1a1a1a;
-        font-family: 'Inter', -apple-system, sans-serif;
+        font-family:
+          'Inter',
+          -apple-system,
+          sans-serif;
       }
       .topbar {
         display: flex;
@@ -89,7 +102,14 @@ import { RouterLink, RouterOutlet } from '@angular/router';
       .page-content {
         padding: 0;
       }
-    `
-  ]
+    `,
+  ],
 })
-export class AppShellComponent {}
+export class AppShellComponent {
+  readonly auth = inject(AuthService);
+  private router = inject(Router);
+  logout(): void {
+    this.auth.logout();
+    this.router.navigate(['/login']);
+  }
+}

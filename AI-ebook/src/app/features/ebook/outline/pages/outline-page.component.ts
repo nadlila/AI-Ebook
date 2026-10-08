@@ -15,7 +15,10 @@ import { EbookService } from '../../../../core/services/ebook.service';
         <p class="subtitle">Organize your ebook before AI start writing.</p>
 
         <div class="outline-list" *ngIf="outline?.chapters?.length">
-          <div class="chapter-item" *ngFor="let chapter of outline.chapters; let i = index">
+          <div
+            class="chapter-item"
+            *ngFor="let chapter of outline.chapters; let i = index"
+          >
             <span class="index">#0{{ i + 1 }}</span>
             <span class="title">{{ chapter.title }}</span>
             <span class="lessons">{{ chapter.lessons }} lessons</span>
@@ -23,8 +26,12 @@ import { EbookService } from '../../../../core/services/ebook.service';
         </div>
 
         <div class="actions">
-          <button type="button" class="secondary-btn" (click)="goBack()">Back</button>
-          <button type="button" class="primary-btn" (click)="approve()">Approve Outline</button>
+          <button type="button" class="secondary-btn" (click)="goBack()">
+            Back
+          </button>
+          <button type="button" class="primary-btn" (click)="approve()">
+            Approve Outline
+          </button>
         </div>
       </div>
     </section>
@@ -107,24 +114,15 @@ import { EbookService } from '../../../../core/services/ebook.service';
           flex-direction: column;
         }
       }
-    `
-  ]
+    `,
+  ],
 })
 export class OutlinePageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly ebookService = inject(EbookService);
 
-  outline: EbookOutline = {
-    title: 'Ebook Outline',
-    chapters: [
-      { id: '1', title: 'Introduction to UI/UX', lessons: 3 },
-      { id: '2', title: 'Understanding Users', lessons: 4 },
-      { id: '3', title: 'User Research', lessons: 4 },
-      { id: '4', title: 'Wireframing', lessons: 3 },
-      { id: '5', title: 'Prototyping', lessons: 3 }
-    ]
-  };
+  outline: EbookOutline = { title: 'Ebook Outline', chapters: [] };
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -140,6 +138,7 @@ export class OutlinePageComponent implements OnInit {
   }
 
   approve(): void {
+    if (!this.outline.chapters.length) return;
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) {
       this.router.navigate(['/dashboard']);
