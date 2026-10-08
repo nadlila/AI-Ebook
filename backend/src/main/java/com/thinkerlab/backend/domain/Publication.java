@@ -22,7 +22,7 @@ public class Publication {
   @Column(columnDefinition = "text")
   public String description;
 
-  @Column(length = 2048)
+  @Column(columnDefinition = "text")
   public String coverImage;
 
   @Column(nullable = false)

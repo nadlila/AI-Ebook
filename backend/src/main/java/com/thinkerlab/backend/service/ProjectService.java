@@ -129,7 +129,11 @@ public class ProjectService {
   }
 
   private void apply(Project p, ProjectInput in) {
-    if (in.coverImage() != null && !in.coverImage().isBlank()) httpUrl(in.coverImage());
+    if (in.coverImage() != null && !in.coverImage().isBlank()
+        && !in.coverImage().equals(p.coverImage)) {
+      if (in.coverImage().length() > 2048) throw error(HttpStatus.BAD_REQUEST, "Gunakan upload untuk mengubah cover.");
+      httpUrl(in.coverImage());
+    }
     p.type = in.type();
     p.title = in.title().strip();
     p.description = in.description();
@@ -140,6 +144,16 @@ public class ProjectService {
     p.writingStyle = in.writingStyle();
     p.contentLength = in.contentLength();
     p.coverImage = in.coverImage();
+  }
+
+  public Project uploadCover(UUID id, long revision, org.springframework.web.multipart.MultipartFile file) {
+    var p = owned(id);
+    match(p, revision);
+    editable(p);
+    p.coverImage = CoverImages.encode(file);
+    audit(p, "COVER_UPDATED", p.id);
+    projects.flush();
+    return p;
   }
 
   private void invalidate(Project p) {
@@ -172,6 +186,48 @@ public class ProjectService {
   public List<Source> sources(UUID id) {
     owned(id);
     return sources.findByProjectIdOrderByCreatedAt(id);
+  }
+
+  public Map<String, Object> researchView(UUID id) {
+    var p = owned(id);
+    var result = p.researchPayload == null ? null : json.read(p.researchPayload,
+        com.thinkerlab.backend.api.response.ResearchResult.class);
+    return Map.of("sources", sources(id),
+        "searchSuggestionsHtml", result == null ? "" : result.searchSuggestionsHtml(),
+        "queries", result == null ? List.of() : result.queries(),
+        "frozen", p.approvedOutlineId != null || p.currentVersionId != null,
+        "hasResearch", result != null);
+  }
+
+  public Map<String, Object> saveResearch(UUID id, long revision,
+      com.thinkerlab.backend.api.response.ResearchResult result) {
+    var p = owned(id);
+    match(p, revision);
+    sourceEditable(p);
+    var existing = sources.findByProjectIdOrderByCreatedAt(id);
+    Set<String> urls = new HashSet<>();
+    existing.forEach(s -> urls.add(s.url));
+    if (existing.size() + result.sources().size() > 50)
+      throw error(HttpStatus.CONFLICT, "Jumlah referensi sudah cukup. Pilih sumber yang tersedia.");
+    for (var input : result.sources()) {
+      httpUrl(input.url());
+      if (!urls.add(input.url())) continue;
+      var source = new Source();
+      source.id = UUID.randomUUID();
+      source.projectId = id;
+      source.title = input.title();
+      source.publisher = input.publisher();
+      source.url = input.url();
+      source.excerpt = input.excerpt();
+      source.selected = false;
+      source.accessDate = Instant.now();
+      sources.save(source);
+    }
+    p.researchPayload = json.write(result);
+    p.status = Status.RESEARCH_READY;
+    audit(p, "WEB_RESEARCH_SAVED", p.id);
+    projects.flush();
+    return researchView(id);
   }
 
   public Source addSource(UUID id, long revision, SourceInput in) {

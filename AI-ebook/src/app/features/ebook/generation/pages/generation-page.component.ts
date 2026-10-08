@@ -61,6 +61,10 @@ import { EbookService } from '../../../../core/services/ebook.service';
           <span class="estimate">Est. {{ estimatedTime }}</span>
         </div>
 
+        <p *ngIf="errorMessage" class="error-message" role="alert">{{ errorMessage }}</p>
+        <button *ngIf="generationState === 'failed'" type="button" class="retry-btn"
+          [disabled]="isGenerating" (click)="retry()">Retry seluruh ebook</button>
+
         <div
           class="chapter-list"
           *ngIf="progress.chapters.length; else emptyState"
@@ -86,14 +90,6 @@ import { EbookService } from '../../../../core/services/ebook.service';
                       : 'Pending'
               }}
             </span>
-            <button
-              type="button"
-              class="retry-btn"
-              *ngIf="item.status === 'failed'"
-              (click)="retry(item.chapterId)"
-            >
-              Retry
-            </button>
           </article>
         </div>
 
@@ -107,7 +103,7 @@ import { EbookService } from '../../../../core/services/ebook.service';
           <button type="button" class="secondary-btn" (click)="goBack()">
             Back
           </button>
-          <button type="button" class="primary-btn" (click)="goToEditor()">
+          <button type="button" class="primary-btn" [disabled]="generationState !== 'complete'" (click)="goToEditor()">
             Open Editor
           </button>
         </div>
@@ -247,6 +243,10 @@ import { EbookService } from '../../../../core/services/ebook.service';
       .status.failed {
         color: #a12d2d;
       }
+      .error-message { color: #a12d2d; overflow-wrap: anywhere; }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .ai-task.failed .task-indicator:after,
+      .ai-task.complete .task-indicator:after { animation: none; }
       .status.pending {
         color: #999;
       }
@@ -375,6 +375,8 @@ export class GenerationPageComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly ebookService = inject(EbookService);
+  errorMessage = '';
+  isGenerating = false;
 
   progress: GenerationProgress = {
     totalChapters: 0,
@@ -386,7 +388,7 @@ export class GenerationPageComponent implements OnInit {
   };
 
   get generationState(): string {
-    if (this.progress.failedChapters > 0) return 'failed';
+    if (this.errorMessage || this.progress.failedChapters > 0) return 'failed';
     if (
       this.progress.totalChapters > 0 &&
       this.progress.completedChapters >= this.progress.totalChapters
@@ -403,7 +405,7 @@ export class GenerationPageComponent implements OnInit {
 
   get currentAiTask(): string {
     if (this.generationState === 'complete') return 'Finalizing your ebook';
-    if (this.generationState === 'failed') return 'Retrying failed chapter';
+    if (this.generationState === 'failed') return 'Generation gagal. Coba ulang seluruh ebook.';
     return this.progress.currentChapter &&
       this.progress.currentChapter !== 'N/A'
       ? `Writing ${this.progress.currentChapter}`
@@ -411,6 +413,7 @@ export class GenerationPageComponent implements OnInit {
   }
 
   get estimatedTime(): string {
+    if (this.generationState === 'failed') return 'Menunggu retry';
     return this.generationState === 'complete'
       ? 'Selesai'
       : 'Tunggu respons Gemini (hingga 3 menit)';
@@ -433,35 +436,45 @@ export class GenerationPageComponent implements OnInit {
           return;
         this.generate(id);
       },
+      error: (error) => this.showError(error),
     });
   }
   private generate(id: string): void {
+    if (this.isGenerating) return;
+    this.isGenerating = true;
+    this.errorMessage = '';
+    this.progress = {
+      ...this.progress,
+      failedChapters: 0,
+      currentChapter: 'Gemini sedang menyusun seluruh bab',
+      chapters: this.progress.chapters.map((c) => ({ ...c, status: 'generating' })),
+    };
     this.ebookService.startGeneration(id).subscribe({
-      next: (result) => (this.progress = result),
-      error: () => {
-        this.progress = {
-          ...this.progress,
-          failedChapters: Math.max(1, this.progress.totalChapters),
-          chapters: this.progress.chapters.map((c) => ({
-            ...c,
-            status: 'failed',
-          })),
-        };
-      },
+      next: (result) => { this.progress = result; },
+      error: (error) => this.showError(error),
+      complete: () => { this.isGenerating = false; },
     });
   }
 
-  retry(chapterId: string): void {
+  private showError(error: any): void {
+    this.isGenerating = false;
+    this.errorMessage = error?.error?.detail || error?.error?.message || error?.message
+      || 'Generation gagal. Silakan coba lagi.';
+    this.progress = {
+      ...this.progress,
+      currentChapter: 'Generation gagal',
+      failedChapters: this.progress.totalChapters,
+      chapters: this.progress.chapters.map((c) => ({ ...c, status: 'failed' })),
+    };
+  }
+
+  retry(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) {
       return;
     }
 
-    this.ebookService
-      .retryGenerationChapter(id, chapterId)
-      .subscribe((result) => {
-        this.progress = result;
-      });
+    this.generate(id);
   }
 
   goBack(): void {

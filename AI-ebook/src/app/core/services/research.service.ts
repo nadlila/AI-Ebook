@@ -5,12 +5,25 @@ import { concatMap, map, switchMap, toArray } from 'rxjs/operators';
 import { Source } from '../models/source.model';
 import { EbookService } from './ebook.service';
 import { environment } from '../../../environments/environment';
+export interface ResearchView {
+  sources: Source[];
+  searchSuggestionsHtml: string;
+  queries: string[];
+  frozen: boolean;
+  hasResearch: boolean;
+}
 @Injectable({ providedIn: 'root' })
 export class ResearchService {
   constructor(
     private http: HttpClient,
     private ebooks: EbookService,
   ) {}
+  getResearch(id: string): Observable<ResearchView> {
+    return this.http.get<ResearchView>(`${environment.apiBaseUrl}/ebooks/${id}/ai/research`);
+  }
+  search(id: string, refresh = false): Observable<ResearchView> {
+    return this.ebooks.mutate(id, `/ai/research?refresh=${refresh}`);
+  }
   getSources(id: string): Observable<Source[]> {
     return this.http
       .get<any[]>(`${environment.apiBaseUrl}/ebooks/${id}/sources`)
@@ -29,7 +42,7 @@ export class ResearchService {
             this.ebooks.mutate(
               id,
               `/sources/${x.id}`,
-              { selected: selected.includes(x.id), locked: false },
+              { selected: selected.includes(x.id), locked: x.locked ?? false },
               'PATCH',
             ),
           ),

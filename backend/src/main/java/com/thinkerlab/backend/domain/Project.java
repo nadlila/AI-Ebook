@@ -24,6 +24,10 @@ public class Project {
   @Column(columnDefinition = "text")
   public String description;
 
+  @com.fasterxml.jackson.annotation.JsonIgnore
+  @Column(columnDefinition = "text")
+  public String researchPayload;
+
   @Column(columnDefinition = "text")
   public String learningGoal;
 
@@ -44,7 +48,7 @@ public class Project {
   @Column(length = 16)
   public Types.Length contentLength;
 
-  @Column(length = 2048)
+  @Column(columnDefinition = "text")
   public String coverImage;
 
   public java.util.UUID approvedOutlineId;

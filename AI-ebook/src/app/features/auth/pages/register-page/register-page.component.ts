@@ -13,28 +13,6 @@ import { AuthService } from '../../../../core/services/auth.service';
         <h1>Buat Akun</h1>
         <p class="subtitle">Daftar untuk mulai membuat dan membaca ebook</p>
 
-<<<<<<< HEAD
-          <label>Email</label>
-          <input
-            type="email"
-            formControlName="email"
-            placeholder="you@example.com"
-          />
-
-          <label>Password</label>
-          <input
-            type="password"
-            formControlName="password"
-            placeholder="••••••••"
-          />
-
-          <button
-            type="submit"
-            class="primary-btn"
-            [disabled]="form.invalid || isSubmitting"
-          >
-            {{ isSubmitting ? 'Creating account...' : 'Create account' }}
-=======
         <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
           <div class="field">
             <span class="field-icon" aria-hidden="true">
@@ -91,7 +69,6 @@ import { AuthService } from '../../../../core/services/auth.service';
 
           <button type="submit" class="primary-btn" [disabled]="form.invalid || isSubmitting">
             {{ isSubmitting ? 'Mendaftarkan...' : 'Daftar' }}
->>>>>>> 9a89d1d (menghubungkan backend dan frontend, login dan register menggunakan akun database, page akun)
           </button>
         </form>
 
@@ -102,71 +79,7 @@ import { AuthService } from '../../../../core/services/auth.service';
       </div>
     </section>
   `,
-<<<<<<< HEAD
-  styles: [
-    `
-      .auth-shell {
-        min-height: calc(100vh - 86px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .auth-card {
-        width: min(100%, 440px);
-        background: #f3f1ef;
-        border: 1px solid #d6d4d1;
-        border-radius: 18px;
-        padding: 28px 24px 22px;
-      }
-      h2 {
-        margin: 0 0 18px;
-        text-align: center;
-        font-size: 2rem;
-        font-weight: 700;
-      }
-      form {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-      label {
-        font-size: 0.95rem;
-        font-weight: 600;
-      }
-      input {
-        width: 100%;
-        border: 1px solid #d4d0cc;
-        border-radius: 10px;
-        padding: 12px 14px;
-        font-size: 1rem;
-        background: #f8f7f6;
-        box-sizing: border-box;
-      }
-      .primary-btn {
-        margin-top: 14px;
-        background: #1e1e1e;
-        color: #fff;
-        border: 0;
-        border-radius: 12px;
-        height: 46px;
-        font-weight: 700;
-        cursor: pointer;
-      }
-      .switch-text {
-        margin-top: 16px;
-        text-align: center;
-        color: #565656;
-      }
-      .switch-text a {
-        color: #1d1d1d;
-        font-weight: 700;
-        text-decoration: none;
-      }
-    `,
-  ],
-=======
   styleUrl: '../auth-page.css'
->>>>>>> 9a89d1d (menghubungkan backend dan frontend, login dan register menggunakan akun database, page akun)
 })
 export class RegisterPageComponent {
   private readonly fb = inject(FormBuilder);
@@ -194,19 +107,6 @@ export class RegisterPageComponent {
     this.errorMessage = '';
     this.successMessage = '';
     this.authService.register(this.form.getRawValue()).subscribe({
-<<<<<<< HEAD
-      next: () => this.router.navigateByUrl('/dashboard'),
-      error: (error) => {
-        window.alert(
-          error.error?.msg ||
-            error.error?.error_description ||
-            error.error?.detail ||
-            error.message ||
-            'Login gagal.',
-        );
-        this.isSubmitting = false;
-      },
-=======
       next: session => {
         this.isSubmitting = false;
         if (session) {
@@ -219,7 +119,6 @@ export class RegisterPageComponent {
         this.isSubmitting = false;
         this.errorMessage = 'Pendaftaran belum berhasil. Periksa data dan koneksi, lalu coba lagi.';
       }
->>>>>>> 9a89d1d (menghubungkan backend dan frontend, login dan register menggunakan akun database, page akun)
     });
   }
 }

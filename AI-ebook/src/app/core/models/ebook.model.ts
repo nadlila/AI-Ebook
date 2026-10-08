@@ -54,6 +54,7 @@ export interface EbookOutline {
 }
 
 export interface EbookSummary {
+  lastReadAt?: string;
   id: string;
   title: string;
   status: EbookStatus;
@@ -128,6 +129,8 @@ export interface QualityCheckResult {
 }
 
 export interface Ebook extends EbookSummary {
+  publicationId?: string;
+  contentVersionId?: string;
   sources?: Array<{
     id: string;
     title: string;

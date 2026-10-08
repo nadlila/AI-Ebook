@@ -22,9 +22,17 @@ import org.springframework.web.bind.annotation.*;
 @Validated
 public class ProjectController {
   private final ProjectService service;
+  private final com.thinkerlab.backend.service.ReaderService reader;
 
-  public ProjectController(ProjectService service) {
+  public ProjectController(ProjectService service, com.thinkerlab.backend.service.ReaderService reader) {
     this.service = service;
+    this.reader = reader;
+  }
+
+  @GetMapping("/{id}/publication")
+  public Publication publication(@PathVariable UUID id) {
+    service.owned(id);
+    return reader.publicationForProject(id);
   }
 
   // All mutations of an existing project require the revision returned by GET /ebooks/{id}.
@@ -63,6 +71,12 @@ public class ProjectController {
       @RequestHeader("If-Match") String rev,
       @Valid @RequestBody ProjectInput input) {
     return service.update(id, revision(rev), input);
+  }
+
+  @PostMapping(value = "/{id}/cover", consumes = "multipart/form-data")
+  public Project uploadCover(@PathVariable UUID id, @RequestHeader("If-Match") String rev,
+      @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+    return service.uploadCover(id, revision(rev), file);
   }
 
   @GetMapping("/{id}/sources")

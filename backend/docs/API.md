@@ -1,12 +1,14 @@
 # Kontrak API untuk frontend Angular
 
+> Perubahan terbaru: semua ebook dan endpoint library hanya dapat diakses pemilik. `PUBLISHED` berarti siap dibaca di library pribadi. Lihat [kontrak library pribadi](PRIVATE_LIBRARY.md) untuk pemetaan frontend dan aturan akses terbaru.
+
 Base URL: `http://localhost:8080/api`. JSON request memakai `Content-Type: application/json`. Selain `/health`, semua endpoint memerlukan `Authorization: Bearer <access_token Supabase>`.
 
 ## Autentikasi dan role
 
 `GET /auth/me` → `{ "id": "uuid-user", "role": "AUTHOR" }` atau READER. AUTHOR boleh menggunakan API library juga. Role diperiksa dari tabel server pada setiap request.
 
-`GET /capabilities` mengembalikan daftar kemampuan. Saat ini `aiResearch`, `aiGeneration`, dan `backgroundJobs` bernilai false. Frontend harus menonaktifkan tombol fitur AI sampai implementasi provider tersedia.
+`GET /capabilities` mengembalikan daftar kemampuan. `aiResearch` dan `aiGeneration` mengikuti ketersediaan konfigurasi Gemini; `backgroundJobs` tetap false. Konfigurasi tersedia belum menjamin key atau kuota valid. Lihat [endpoint riset web](WEB_RESEARCH.md#kontrak-api).
 
 Login/register/refresh/logout dilakukan dengan Supabase Auth SDK di frontend. Auth model frontend lama (`{token, user}`) dapat diadaptasi dari session Supabase, lalu tambahkan role hasil `/auth/me`. Kirim access token, bukan anon key atau refresh token, pada header backend.
 
@@ -136,7 +138,7 @@ Urutan dan ID bab harus sama dengan outline yang disetujui. `type` block: headin
 | `finalizeEbook` | quality check → review manusia → approve → publish |
 | `getLibrary` | GET `/library`; pakai `items` dan publication UUID |
 | `updateReadingProgress` | PUT `/library/{publicationId}/progress` |
-| `startResearch` / `startGeneration` | belum tersedia; lihat `/capabilities` |
+| `startResearch` | GET/POST `/ebooks/{id}/ai/research`; lihat [kontrak riset](WEB_RESEARCH.md) |
 | `getDashboardSnapshot` | belum ada endpoint khusus; compose daftar author dan library |
 | `deleteEbook` | belum tersedia; jangan hapus lokal lalu menganggap data server terhapus |
 

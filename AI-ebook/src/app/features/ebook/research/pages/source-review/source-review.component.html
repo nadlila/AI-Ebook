@@ -1,0 +1,59 @@
+<section class="sources" aria-labelledby="source-title">
+  <a class="back-link" routerLink="/dashboard">&larr; Kembali ke dashboard</a>
+  <header>
+    <p class="eyebrow">RISET EBOOK</p>
+    <h1 id="source-title">Sumber referensi ebook</h1>
+    <p>Tambahkan sumber dan kutipan isinya. Gemini akan menyusun materi berdasarkan sumber yang kamu pilih.</p>
+  </header>
+  @if (loading) { <p class="notice" role="status">Memuat referensi tersimpan...</p> }
+  @if (errorMessage) {
+    <div class="error" role="alert">{{ errorMessage }}</div>
+    <button class="secondary" type="button" (click)="load()" [disabled]="busy">Muat ulang hasil</button>
+  }
+  @if (frozen) { <p class="notice">Referensi ini sudah dikunci karena outline telah disetujui.</p> }
+  @if (!frozen && !loading && !loadFailed) {
+    <form #sourceForm="ngForm" (ngSubmit)="addSource()" class="source-form">
+      <fieldset [disabled]="busy">
+        <label for="source-title-input">Judul sumber</label>
+        <input id="source-title-input" name="title" [(ngModel)]="draft.title" required maxlength="200" />
+        <label for="source-publisher">Penerbit / penulis</label>
+        <input id="source-publisher" name="publisher" [(ngModel)]="draft.publisher" required maxlength="200" />
+        <label for="source-url">URL sumber</label>
+        <input id="source-url" name="url" type="url" [(ngModel)]="draft.url" required maxlength="2048" placeholder="https://..." />
+        <label for="source-excerpt">Kutipan / isi sumber</label>
+        <textarea id="source-excerpt" name="excerpt" [(ngModel)]="draft.excerpt" required maxlength="50000" rows="7"
+          placeholder="Tempel bagian materi yang relevan, bukan hanya alamat website." aria-describedby="excerpt-help"></textarea>
+        <p id="excerpt-help">Isi sumber perlu disertakan karena aplikasi tidak mengambil isi URL secara otomatis.</p>
+        <button class="primary" type="submit" [disabled]="busy || sourceForm.invalid">
+          {{ adding ? 'Menyimpan sumber...' : 'Tambah sumber' }}
+        </button>
+      </fieldset>
+    </form>
+  }
+  @if (!loading && !adding && !sources.length && !loadFailed) {
+    <p class="empty">Belum ada referensi tersimpan. Tambahkan sumber melalui formulir di atas.</p>
+  }
+  @if (sources.length) {
+    <div class="list-heading"><h2>Sumber tersimpan</h2><span>{{ selectedCount }} dari {{ sources.length }} dipilih</span></div>
+    <div class="source-list">
+      @for (source of sources; track source.id) {
+        <article class="source-card" [class.selected]="source.selected">
+          <div class="source-heading">
+            <label><input type="checkbox" [checked]="source.selected" (change)="toggle(source)"
+              [disabled]="busy || frozen || source.locked" /><span>{{ source.title }}</span></label>
+            <a [href]="source.url" target="_blank" rel="noopener noreferrer">Buka sumber &nearr;</a>
+          </div>
+          <p class="publisher">{{ source.publisher }} &middot; {{ source.accessDate | date:'dd/MM/yyyy' }}</p>
+          <p class="excerpt">{{ source.excerpt }}</p>
+        </article>
+      }
+    </div>
+  }
+  @if (!frozen && !loading && !loadFailed) {
+    <div class="actions">
+      <button class="primary" type="button" (click)="continue()" [disabled]="busy || !selectedCount">
+        {{ saving ? 'Menyimpan pilihan...' : 'Lanjut ke tujuan belajar' }}
+      </button>
+    </div>
+  }
+</section>

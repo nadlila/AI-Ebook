@@ -19,6 +19,8 @@ import { Ebook } from '../../../../core/models/ebook.model';
           <div class="header-placeholder"></div>
         </header>
 
+        <p *ngIf="progressError" role="alert">{{ progressError }} <button (click)="persistProgress()" [disabled]="savingProgress">Coba simpan lagi</button></p>
+        <p *ngIf="savingProgress" role="status">Menyimpan progres...</p>
         <div class="reader-layout">
           <aside class="content-panel">
             <h3>Content</h3>
@@ -28,6 +30,7 @@ import { Ebook } from '../../../../core/models/ebook.model';
                 class="chapter-item"
                 *ngFor="let chapter of chapters; let i = index"
                 [class.active]="selectedIndex === i"
+                [disabled]="savingProgress"
                 (click)="selectedIndex = i; persistProgress()"
               >
                 <span class="chap-num">{{
@@ -77,7 +80,7 @@ import { Ebook } from '../../../../core/models/ebook.model';
                 type="button"
                 class="pager-btn"
                 (click)="prevChapter()"
-                [disabled]="selectedIndex === 0"
+                [disabled]="savingProgress || selectedIndex === 0"
               >
                 Previous
               </button>
@@ -88,7 +91,7 @@ import { Ebook } from '../../../../core/models/ebook.model';
                 type="button"
                 class="pager-btn"
                 (click)="nextChapter()"
-                [disabled]="selectedIndex === chapters.length - 1"
+                [disabled]="savingProgress || selectedIndex === chapters.length - 1"
               >
                 Next
               </button>
@@ -100,7 +103,7 @@ import { Ebook } from '../../../../core/models/ebook.model';
 
     <ng-template #loadingState>
       <section class="reader-shell">
-        <div class="reader-card empty-state">Loading book content...</div>
+        <div class="reader-card empty-state">{{ loadError || 'Memuat isi ebook...' }}</div>
       </section>
     </ng-template>
   `,
@@ -301,6 +304,9 @@ export class ReaderPageComponent implements OnInit {
   ebook: Ebook | undefined;
   chapters: any[] = [];
   selectedIndex = 0;
+  savingProgress = false;
+  progressError = '';
+  loadError = '';
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -309,7 +315,7 @@ export class ReaderPageComponent implements OnInit {
       return;
     }
 
-    this.ebookService.getEbookById(id).subscribe((result) => {
+    this.ebookService.getEbookById(id).subscribe({ next: (result) => {
       this.ebook = result;
       this.chapters = result?.editorContent ?? [];
       const savedIndex = result?.lastReadChapterIndex ?? 0;
@@ -317,7 +323,8 @@ export class ReaderPageComponent implements OnInit {
         savedIndex,
         Math.max(0, this.chapters.length - 1),
       );
-    });
+      if (result?.publicationId && !result.lastReadAt) this.persistProgress();
+    }, error: () => { this.loadError = 'Ebook tidak tersedia atau koneksi gagal. Kembali ke dashboard dan coba lagi.'; } });
   }
 
   get currentChapter(): any {
@@ -340,14 +347,19 @@ export class ReaderPageComponent implements OnInit {
 
   persistProgress(): void {
     const id = this.route.snapshot.paramMap.get('id');
-    if (!id || !this.chapters.length) return;
+    if (!id || !this.chapters.length || this.savingProgress || !this.ebook?.publicationId) return;
+    this.savingProgress = true;
+    this.progressError = '';
 
     const progress = Math.round(
       ((this.selectedIndex + 1) / this.chapters.length) * 100,
     );
     this.ebookService
-      .updateReadingProgress(id, this.selectedIndex, progress)
-      .subscribe();
+      .updateReadingProgress(id, this.selectedIndex, progress, this.ebook.publicationId, this.ebook.contentVersionId)
+      .subscribe({
+        next: result => { this.ebook = result; this.savingProgress = false; },
+        error: () => { this.savingProgress = false; this.progressError = 'Progres belum tersimpan. Jika versi konten berubah, muat ulang ebook.'; }
+      });
   }
 
   goBack(): void {

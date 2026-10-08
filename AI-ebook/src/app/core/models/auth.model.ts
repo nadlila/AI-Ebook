@@ -10,6 +10,7 @@ export interface RegisterRequest {
 }
 
 export interface AuthSession {
+  role?: 'AUTHOR' | 'READER';
   token: string;
   user: {
     id: string;

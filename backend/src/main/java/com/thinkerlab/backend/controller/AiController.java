@@ -13,6 +13,18 @@ public class AiController {
     this.ai = ai;
   }
 
+  @GetMapping("/research")
+  public Map<String, Object> research(@PathVariable UUID id) {
+    return ai.researchView(id);
+  }
+
+  @PostMapping("/research")
+  public Map<String, Object> research(@PathVariable UUID id,
+      @RequestHeader("If-Match") String revision,
+      @RequestParam(defaultValue = "false") boolean refresh) {
+    return ai.research(id, ProjectController.revision(revision), refresh);
+  }
+
   @PostMapping("/outline")
   public Map<String, Object> outline(
       @PathVariable UUID id, @RequestHeader("If-Match") String revision) {

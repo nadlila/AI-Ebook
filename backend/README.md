@@ -1,5 +1,9 @@
 # ThinkerLab backend
 
+> Riset referensi otomatis, outline, dan konten kini memakai Gemini. Lihat [panduan riset web](docs/WEB_RESEARCH.md) untuk migrasi V002, konfigurasi, dan pengujian. Bagian rancangan awal di bawah yang menyebut AI belum tersedia sudah digantikan oleh integrasi ini.
+
+> Perubahan terbaru: semua ebook dan endpoint library hanya dapat diakses pemilik. `PUBLISHED` berarti siap dibaca di library pribadi. Lihat [kontrak library pribadi](docs/PRIVATE_LIBRARY.md) untuk pemetaan frontend dan aturan akses terbaru.
+
 Backend awal dari proyek Spring Boot milikmu: Spring Boot 4.1.1, Java 21, Spring Security, JPA, dan PostgreSQL Supabase. Dua role aplikasi: AUTHOR dan READER.
 
 Implementasi ini menjalankan alur **sumber yang disediakan author → outline manual → persetujuan outline → konten/editor → pemeriksaan struktur → review manusia → publish → reader**. Ini belum merupakan seluruh implementasi PRD AI. Research web, model AI, generation asynchronous/retry/cancel, estimasi biaya, dan evaluasi fakta belum diimplementasikan karena provider/model dan budget belum ditentukan. Tidak ada hasil AI mock yang dianggap sebagai hasil asli.
@@ -22,7 +26,7 @@ Implementasi ini menjalankan alur **sumber yang disediakan author → outline ma
 
 1. Gunakan JDK 21 dan Maven, atau Maven Wrapper yang sudah ada.
 2. Siapkan project Supabase. Autentikasi sementara menggunakan Supabase Auth. Pastikan JWT signing key memakai RS256 atau ES256; konfigurasi ini tidak menerima legacy HS256.
-3. Di Supabase SQL Editor, jalankan isi `src/main/resources/db/V001__initial_schema.sql` **sekali** pada schema baru. Lalu jalankan `database/supabase_permissions.sql`.
+3. Di Supabase SQL Editor, jalankan isi `src/main/resources/db/V001__initial_schema.sql` **sekali** pada schema baru. Lanjutkan dengan `src/main/resources/db/V002__grounded_research.sql`, lalu jalankan `database/supabase_permissions.sql`.
 4. Jangan tambahkan schema `ebook_app` ke daftar Exposed schemas Supabase Data API. Backend mengakses PostgreSQL melalui JDBC; Angular mengakses konten melalui REST backend.
 5. Buat user lewat Supabase Auth. Untuk author pertama, ganti UUID contoh di `database/grant_author.sql` dengan UUID user, lalu jalankan SQL-nya. Semua user lain default READER. Tidak ada endpoint yang membolehkan user mempromosikan dirinya sendiri.
 6. Isi environment variables dari `.env.example` lewat Run Configuration IDE atau terminal. Gunakan JDBC host/username dari menu Connect Supabase; session pooler port 5432 biasanya paling praktis. Jangan gunakan URL REST Supabase sebagai JDBC URL.
@@ -34,7 +38,7 @@ Implementasi ini menjalankan alur **sumber yang disediakan author → outline ma
 
 Jika permission wrapper belum executable: `chmod +x mvnw`, atau gunakan `mvn spring-boot:run`.
 
-Spring Boot **tidak otomatis membaca file `.env`**. Menaruh nilai di file itu saja belum cukup; variabel harus diekspor atau dimasukkan ke konfigurasi IDE. Contoh terminal:
+Proyek ini membaca `.env` melalui `spring.config.import` saat dijalankan dari direktori `backend`. Alternatifnya, ekspor variabel atau gunakan konfigurasi IDE. Contoh terminal:
 
 ```sh
 export DB_URL='jdbc:postgresql://YOUR_SESSION_POOLER_HOST:5432/postgres?sslmode=require'

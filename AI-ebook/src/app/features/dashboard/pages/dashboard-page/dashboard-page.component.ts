@@ -22,7 +22,7 @@ import {
           <span>Turn a topic into E-book.</span>
           <button
             class="primary-btn"
-            *ngIf="auth.getSession()?.role === 'AUTHOR'"
+
             routerLink="/ebooks/create"
           >
             Start Creating
@@ -47,6 +47,7 @@ import {
             </div>
           </div>
         </div>
+        <button *ngIf="data.continueReading" (click)="continueReading(data.continueReading)">Lanjutkan membaca</button>
         <ng-template #noReading>
           <p class="muted">No active reading session.</p>
         </ng-template>
@@ -54,6 +55,7 @@ import {
 
       <div class="section-card">
         <h3>My Library</h3>
+        <p *ngIf="!readyBooks(data.recentEbooks).length">Belum ada ebook siap dibaca. Selesaikan draft untuk menyimpannya di sini.</p>
         <div class="ebook-grid">
           <article
             class="ebook-item"
@@ -62,7 +64,7 @@ import {
             tabindex="0"
             (keydown.enter)="openEbook(item)"
           >
-            <img [src]="item.coverImage" [alt]="item.title" />
+            <img *ngIf="item.coverImage" [src]="item.coverImage" [alt]="item.title" />
             <div class="book-title">{{ item.title }}</div>
             <div class="book-meta">{{ item.chapterCount }} Chapters</div>
             <div class="book-meta" *ngIf="isInProgress(item)">
@@ -93,6 +95,7 @@ import {
 
       <div class="section-card">
         <h3>My Draft</h3>
+        <p *ngIf="!draftBooks(data.recentEbooks).length">Belum ada draft. Mulai buat ebook pertamamu.</p>
         <div class="ebook-grid">
           <article
             class="ebook-item"
@@ -136,7 +139,7 @@ import {
     </section>
 
     <ng-template #loadingTemplate>
-      <div class="loading-box">Loading dashboard...</div>
+      <div class="loading-box">{{ loadError || 'Memuat ebook pribadimu...' }}</div>
     </ng-template>
   `,
   styles: [
@@ -297,6 +300,7 @@ import {
 })
 export class DashboardPageComponent implements OnInit {
   snapshot: DashboardSnapshot | null = null;
+  loadError = '';
 
   constructor(
     private readonly ebookService: EbookService,
@@ -305,8 +309,9 @@ export class DashboardPageComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.ebookService.getDashboardSnapshot().subscribe((snapshot) => {
-      this.snapshot = snapshot;
+    this.ebookService.getDashboardSnapshot().subscribe({
+      next: snapshot => { this.snapshot = snapshot; },
+      error: () => { this.loadError = 'Daftar ebook belum dapat dimuat. Periksa koneksi backend lalu muat ulang halaman.'; }
     });
   }
 

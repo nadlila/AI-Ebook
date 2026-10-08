@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, forkJoin, throwError } from 'rxjs';
-import { map, switchMap } from 'rxjs/operators';
+import { Observable, of, forkJoin, throwError, from } from 'rxjs';
+import { map, switchMap, mergeMap, toArray } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth.service';
 import {
@@ -111,10 +111,8 @@ export class EbookService {
     );
   }
   getEbookById(id: string): Observable<Ebook> {
-    if (this.auth.getSession()?.role === 'READER')
-      return this.readPublication(id);
     return this.project(id).pipe(
-      switchMap((p) =>
+      switchMap((p) => p.status === 'PUBLISHED' ? this.readPublication(p) :
         forkJoin({
           sources: this.http.get<any[]>(`${this.base}/ebooks/${id}/sources`),
           outlines: this.http.get<any[]>(`${this.base}/ebooks/${id}/outlines`),
@@ -128,53 +126,52 @@ export class EbookService {
             outline: outlines[0]?.outline,
             learningPlan: outlines[0]
               ? {
-                  goal: p.learningGoal,
+                  goal: (p.learningGoal || '').split('\nTarget hasil belajar:\n')[0],
                   outcomes: outlines[0].outline.learningOutcomes,
-                  estimatedReadingTime: '',
+                  estimatedReadingTime: outlines[0].outline.estimatedReadingTime || '',
                 }
               : undefined,
             editorContent: content?.content.chapters,
             chapterCount: outlines[0]?.outline.chapters.length || 0,
+            readingTime: content ? this.readingTime(content.content.chapters) : '',
           })),
         ),
       ),
     );
   }
+  private listProjects(page = 0): Observable<any[]> {
+    return this.http.get<{items: any[]; totalElements: number}>(
+      this.base + '/ebooks?page=' + page + '&size=100'
+    ).pipe(switchMap(result => (page + 1) * 100 < result.totalElements
+      ? this.listProjects(page + 1).pipe(map(rest => [...result.items, ...rest]))
+      : of(result.items)));
+  }
+
   getCurrentDraft(): Observable<Ebook | null> {
-    return this.http.get<any>(`${this.base}/ebooks?size=100`).pipe(
-      map((r) => r.items.find((p: any) => p.status === 'DRAFT')),
-      map((p) => (p ? this.book(p) : null)),
-    );
+    return this.listProjects().pipe(map(items => {
+      const draft = items.find(p => p.status === 'DRAFT');
+      return draft ? this.book(draft) : null;
+    }));
   }
+
   getLibrary(): Observable<EbookSummary[]> {
-    if (this.auth.getSession()?.role === 'READER')
-      return this.http
-        .get<any>(`${this.base}/library?size=100`)
-        .pipe(
-          map((r) =>
-            r.items.map((p: any) =>
-              this.book({
-                ...p,
-                status: 'PUBLISHED',
-                createdAt: p.publishedAt,
-                updatedAt: p.publishedAt,
-              }),
-            ),
-          ),
-        );
-    return this.http
-      .get<any>(`${this.base}/ebooks?size=100`)
-      .pipe(map((r) => r.items.map((p: any) => this.book(p))));
-  }
-  getDashboardSnapshot(): Observable<DashboardSnapshot> {
-    return this.getLibrary().pipe(
-      map((books) => ({
-        userName: this.auth.getSession()?.user.name || '',
-        continueReading:
-          books.find((b) => b.status === 'READY_TO_READ') || null,
-        recentEbooks: books.slice(0, 4),
-      })),
+    return this.listProjects().pipe(
+      switchMap(projects => from(projects).pipe(
+        mergeMap(p => this.getEbookById(p.id), 6),
+        toArray(),
+        map(books => books.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)))
+      ))
     );
+  }
+
+  getDashboardSnapshot(): Observable<DashboardSnapshot> {
+    return this.getLibrary().pipe(map(books => ({
+      userName: this.auth.getSession()?.user.name || 'Pengguna',
+      continueReading: [...books]
+        .filter(b => b.status === 'READY_TO_READ' && !!b.lastReadAt)
+        .sort((a, b) => (b.lastReadAt || '').localeCompare(a.lastReadAt || ''))[0] || null,
+      recentEbooks: books
+    })));
   }
   getResumeRoute(ebook: Pick<Ebook, 'currentStep' | 'id'>): string {
     if (ebook.currentStep === 'LEARNING_PREFERENCES')
@@ -196,7 +193,16 @@ export class EbookService {
     return this.updateEbook(id, {
       learningGoal:
         plan.goal + '\nTarget hasil belajar:\n' + plan.outcomes.join('\n'),
-    }).pipe(switchMap(() => this.regenerateOutline(id)));
+    }).pipe(
+      switchMap(() => this.regenerateOutline(id)),
+      switchMap(book => this.mutate(id, '/outlines', {
+        title: book.outline!.title,
+        chapters: book.outline!.chapters,
+        learningOutcomes: plan.outcomes,
+        estimatedReadingTime: plan.estimatedReadingTime
+      })),
+      switchMap(() => this.getEbookById(id))
+    );
   }
   createOutline(id: string, outline: EbookOutline): Observable<Ebook> {
     return this.mutate(id, '/outlines', {
@@ -286,43 +292,47 @@ export class EbookService {
   deleteEbook(id: string): void {
     throw new Error('Penghapusan belum tersedia.');
   }
-  private readPublication(id: string): Observable<Ebook> {
-    return forkJoin({
-      data: this.http.get<any>(`${this.base}/library/${id}`),
-      progress: this.http.get<any>(`${this.base}/library/${id}/progress`),
-    }).pipe(
-      map(({ data, progress }) => ({
-        ...this.book({
-          ...data.publication,
-          status: 'PUBLISHED',
-          createdAt: data.publication.publishedAt,
-          updatedAt: data.publication.publishedAt,
-        }),
+  private readPublication(project: any): Observable<Ebook> {
+    return this.http.get<any>(this.base + '/ebooks/' + project.id + '/publication').pipe(
+      switchMap(pub => forkJoin({
+        data: this.http.get<any>(this.base + '/library/' + pub.id),
+        progress: this.http.get<any>(this.base + '/library/' + pub.id + '/progress')
+      }).pipe(map(({data, progress}) => ({
+        ...this.book(project),
+        publicationId: pub.id,
+        contentVersionId: pub.contentVersionId,
         sources: data.sources,
         editorContent: data.content.chapters,
         chapterCount: data.content.chapters.length,
         lastReadChapterIndex: progress.chapterIndex,
         readingProgress: progress.completion,
-      })),
+        lastReadAt: progress.updatedAt || undefined,
+        readingTime: this.readingTime(data.content.chapters)
+      }))))
     );
   }
+
+  uploadCover(id: string, file: File): Observable<Ebook> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.mutate(id, '/cover', form).pipe(switchMap(() => this.getEbookById(id)));
+  }
+
+  private readingTime(chapters: EditorChapterContent[]): string {
+    const words = chapters.flatMap(c => c.blocks)
+      .map(b => [b.content, ...(b.items || [])].join(' ')).join(' ').trim();
+    return words ? Math.max(1, Math.ceil(words.split(/\s+/).length / 200)) + ' min' : '';
+  }
+
   updateReadingProgress(
-    id: string,
-    chapterIndex: number,
-    completion: number,
+    id: string, chapterIndex: number, completion: number,
+    publicationId?: string, contentVersionId?: string
   ): Observable<Ebook> {
-    if (this.auth.getSession()?.role === 'READER')
-      return this.http.get<any>(`${this.base}/library/${id}/progress`).pipe(
-        switchMap((p) =>
-          this.http.put(`${this.base}/library/${id}/progress`, {
-            contentVersionId: p.contentVersionId,
-            chapterIndex,
-            completion,
-          }),
-        ),
-        switchMap(() => this.readPublication(id)),
-      );
-    // Author preview is not a publication reading session.
-    return this.getEbookById(id);
+    if (!publicationId || !contentVersionId) {
+      return throwError(() => new Error('Ebook belum disimpan ke My Library.'));
+    }
+    return this.http.put(this.base + '/library/' + publicationId + '/progress', {
+      contentVersionId, chapterIndex, completion
+    }).pipe(switchMap(() => this.getEbookById(id)));
   }
 }

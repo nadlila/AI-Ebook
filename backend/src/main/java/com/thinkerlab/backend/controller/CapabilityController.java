@@ -22,7 +22,7 @@ public class CapabilityController {
         "manualOutlineAndContent", true,
         "versioningAndPublishing", true,
         "qualityCheckScope", "STRUCTURAL_ONLY",
-        "aiResearch", false,
+        "aiResearch", gemini.configured(),
         "aiGeneration", gemini.configured(),
         "backgroundJobs", false);
   }

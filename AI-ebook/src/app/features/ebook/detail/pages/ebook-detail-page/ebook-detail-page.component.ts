@@ -43,15 +43,16 @@ import { EbookService } from '../../../../../core/services/ebook.service';
             <p class="book-subtitle">
               {{
                 ebook.description ||
-                  'A practical guide to designing with AI as part of the product system.'
+                  'Belum ada deskripsi.'
               }}
             </p>
 
+            <p *ngIf="actionError" role="alert">{{ actionError }}</p>
             <div class="action-buttons">
-              <button class="btn-read" (click)="startReading()">
+              <button class="btn-read" (click)="startReading()" [disabled]="!ebook.editorContent?.length">
                 Read Ebook
               </button>
-              <button class="btn-outline">
+              <button class="btn-outline" disabled title="Audio belum tersedia">
                 <span class="icon">▶</span> Listen
               </button>
               <button
@@ -65,13 +66,14 @@ import { EbookService } from '../../../../../core/services/ebook.service';
                 class="btn-outline"
                 *ngIf="ebook.status !== 'READY_TO_READ'"
                 (click)="coverMenu = true"
+                [disabled]="uploadingCover || saving"
               >
-                Cover
+                {{ uploadingCover ? 'Mengunggah cover...' : 'Upload / Ganti cover' }}
               </button>
               <input
                 #coverInput
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png"
                 hidden
                 (change)="changeCover($event)"
               />
@@ -79,8 +81,9 @@ import { EbookService } from '../../../../../core/services/ebook.service';
                 class="btn-publish"
                 *ngIf="ebook.status !== 'READY_TO_READ'"
                 (click)="publishEbook()"
+                [disabled]="saving || uploadingCover || !ebook.editorContent?.length"
               >
-                Publish
+                Simpan ke My Library
               </button>
             </div>
             <div
@@ -90,7 +93,7 @@ import { EbookService } from '../../../../../core/services/ebook.service';
             >
               <div class="cover-dialog" (click)="$event.stopPropagation()">
                 <h3>Choose a cover</h3>
-                <p>Select how you want to add your book cover.</p>
+                <p>Pilih JPG atau PNG maksimal 2 MB dan 16 megapiksel. Gambar akan diperkecil untuk cover.</p>
                 <button
                   type="button"
                   (click)="coverInput.click(); coverMenu = false"
@@ -129,7 +132,7 @@ import { EbookService } from '../../../../../core/services/ebook.service';
               </div>
               <div class="stat-box">
                 <span class="stat-label">Audio</span>
-                <span class="stat-value">TTS available</span>
+                <span class="stat-value">Belum tersedia</span>
               </div>
             </div>
           </main>
@@ -153,11 +156,7 @@ import { EbookService } from '../../../../../core/services/ebook.service';
                 </div>
                 <div class="chap-info">
                   <h4>{{ chapter.title }}</h4>
-                  <p>
-                    This chapter introduces the topic and establishes the
-                    context for the rest of the ebook. A practical guide to
-                    designing with AI as part of the product system.
-                  </p>
+
                 </div>
                 <div class="chap-action">
                   <button class="btn-open-link" (click)="startReading()">
@@ -172,7 +171,7 @@ import { EbookService } from '../../../../../core/services/ebook.service';
     </section>
 
     <ng-template #loading>
-      <div class="loading-state">Loading book details...</div>
+      <div class="loading-state">{{ loadError || 'Memuat detail ebook...' }}</div>
     </ng-template>
   `,
   styles: [
@@ -514,7 +513,11 @@ import { EbookService } from '../../../../../core/services/ebook.service';
 })
 export class EbookDetailPageComponent implements OnInit {
   coverMenu = false;
+  uploadingCover = false;
   deleteError = '';
+  actionError = '';
+  saving = false;
+  loadError = '';
 
   deleteEbook(): void {
     if (!this.ebook) return;
@@ -539,12 +542,12 @@ export class EbookDetailPageComponent implements OnInit {
       return;
     }
 
-    this.ebookService.getEbookById(id).subscribe((result) => {
+    this.ebookService.getEbookById(id).subscribe({ next: (result) => {
       this.ebook = result;
       this.chapterList =
         result?.editorContent?.map((chapter) => ({ title: chapter.title })) ??
         [];
-    });
+    }, error: () => { this.loadError = 'Ebook tidak tersedia atau gagal dimuat. Kembali ke dashboard.'; } });
   }
 
   startReading(): void {
@@ -560,7 +563,24 @@ export class EbookDetailPageComponent implements OnInit {
   }
 
   changeCover(event: Event): void {
-    window.alert('Upload cover belum tersedia.');
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file || !this.ebook || this.uploadingCover || this.saving) return;
+    this.actionError = '';
+    if (!['image/jpeg', 'image/png'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+      this.actionError = 'Pilih gambar JPG/PNG maksimal 2 MB.';
+      return;
+    }
+    this.uploadingCover = true;
+    this.ebookService.uploadCover(this.ebook.id, file).subscribe({
+      next: updated => { this.ebook = updated; this.uploadingCover = false; },
+      error: error => {
+        this.uploadingCover = false;
+        this.actionError = error.status === 413 ? 'Ukuran file terlalu besar. Maksimal 2 MB.'
+          : error.error?.detail || 'Cover belum berhasil diunggah. Periksa koneksi lalu coba lagi.';
+      }
+    });
   }
   generateCover(): void {
     window.alert('Pembuatan cover AI belum tersedia.');
@@ -570,12 +590,16 @@ export class EbookDetailPageComponent implements OnInit {
     if (!this.ebook) return;
     if (
       !window.confirm(
-        'Saya sudah membaca isi ebook, memeriksa fakta dan sumbernya, serta menyetujui versi ini untuk dipublikasikan.',
+        'Saya sudah membaca isi ebook, memeriksa fakta dan sumbernya, serta menyetujui versi ini untuk disimpan di library pribadi saya.',
       )
     )
       return;
-    this.ebookService.finalizeEbook(this.ebook.id).subscribe((updated) => {
-      if (updated) this.ebook = updated;
+    if (this.saving || this.uploadingCover) return;
+    this.saving = true;
+    this.actionError = '';
+    this.ebookService.finalizeEbook(this.ebook.id).subscribe({
+      next: updated => { this.ebook = updated; this.saving = false; },
+      error: error => { this.saving = false; this.actionError = error.error?.detail || 'Belum tersimpan. Jalankan pemeriksaan struktur di editor lalu coba lagi.'; }
     });
   }
 

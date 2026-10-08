@@ -29,6 +29,33 @@ class BackendIntegrationTest {
   @MockitoBean com.thinkerlab.backend.service.GeminiService gemini;
   UUID author = UUID.randomUUID(), reader = UUID.randomUUID(), stranger = UUID.randomUUID();
 
+  @Test
+  void coverUploadValidatesImageAndOwnershipAndPersistsWithoutChangingWorkflow() throws Exception {
+    String id = create().get("id").asText();
+    var image = new java.awt.image.BufferedImage(20, 30, java.awt.image.BufferedImage.TYPE_INT_RGB);
+    var bytes = new java.io.ByteArrayOutputStream();
+    javax.imageio.ImageIO.write(image, "png", bytes);
+    var file = new org.springframework.mock.web.MockMultipartFile("file", "cover.png", "image/png", bytes.toByteArray());
+    String initialRevision = rev(id);
+    mvc.perform(multipart("/api/ebooks/" + id + "/cover").file(file).header("If-Match", initialRevision).with(as(stranger)))
+        .andExpect(status().isNotFound());
+    mvc.perform(multipart("/api/ebooks/" + id + "/cover").file(file).header("If-Match", initialRevision).with(as(author)))
+        .andExpect(status().isOk());
+    var saved = call(get("/api/ebooks/" + id), author, 200);
+    String cover = saved.get("coverImage").asText();
+    assertThat(cover).startsWith("data:image/jpeg;base64,");
+    assertThat(saved.get("status").asText()).isEqualTo("DRAFT");
+    mvc.perform(multipart("/api/ebooks/" + id + "/cover").file(file).header("If-Match", initialRevision).with(as(author)))
+        .andExpect(status().isConflict());
+    var fake = new org.springframework.mock.web.MockMultipartFile("file", "fake.png", "image/png", "<svg>fake</svg>".getBytes());
+    mvc.perform(multipart("/api/ebooks/" + id + "/cover").file(fake).header("If-Match", rev(id)).with(as(author)))
+        .andExpect(status().isBadRequest());
+    var metadata = (tools.jackson.databind.node.ObjectNode) json.readTree(INPUT);
+    metadata.put("coverImage", cover);
+    call(put("/api/ebooks/" + id).header("If-Match", rev(id)).contentType("application/json").content(body(metadata)), author, 200);
+    assertThat(call(get("/api/ebooks/" + id), author, 200).get("coverImage").asText()).isEqualTo(cover);
+  }
+
   @BeforeEach
   void authors() {
     for (var id : List.of(author, stranger)) {
@@ -174,6 +201,7 @@ class BackendIntegrationTest {
     for (String suffix : List.of("", "/sources", "/outlines", "/versions", "/audit"))
       call(get("/api/ebooks/" + id + suffix), stranger, 404);
     call(post("/api/ebooks/" + id + "/publish").header("If-Match", "0"), stranger, 404);
+    assertThat(call(get("/api/ebooks"), stranger, 200).path("items").size()).isZero();
   }
 
   @Test
@@ -220,7 +248,7 @@ class BackendIntegrationTest {
     String v = content(id, s, "Konten versi pertama");
     String pub = publish(id, v);
     assertThat(call(mutate(id, "/publish", ""), author, 200).get("id").asText()).isEqualTo(pub);
-    var response = call(get("/api/library/" + pub), reader, 200);
+    var response = call(get("/api/library/" + pub), author, 200);
     assertThat(response.toString())
         .contains("Konten versi pertama")
         .doesNotContain("Catatan sumber dari author.");
@@ -228,23 +256,32 @@ class BackendIntegrationTest {
         put("/api/library/" + pub + "/progress")
             .contentType("application/json")
             .content(body(Map.of("contentVersionId", v, "chapterIndex", 0, "completion", 70))),
-        reader,
+        author,
         200);
     assertThat(
-            call(get("/api/library/" + pub + "/progress"), reader, 200).get("completion").asInt())
+            call(get("/api/library/" + pub + "/progress"), author, 200).get("completion").asInt())
         .isEqualTo(70);
-    assertThat(
-            call(get("/api/library/" + pub + "/progress"), stranger, 200).get("completion").asInt())
-        .isZero();
+    for (var other : List.of(reader, stranger)) {
+      call(get("/api/library/" + pub), other, 404);
+      call(get("/api/library/" + pub + "/progress"), other, 404);
+      call(get("/api/ebooks/" + id + "/publication"), other, other.equals(reader) ? 403 : 404);
+      call(put("/api/library/" + pub + "/progress").contentType("application/json")
+          .content(body(Map.of("contentVersionId", v, "chapterIndex", 0, "completion", 50))), other, 404);
+      call(post("/api/library/" + pub + "/issues").contentType("application/json")
+          .content(body(Map.of("message", "Private test"))), other, 404);
+      assertThat(call(get("/api/library?search=Belajar UX"), other, 200).path("items").size()).isZero();
+    }
+    assertThat(call(get("/api/ebooks/" + id + "/publication"), author, 200).get("id").asText()).isEqualTo(pub);
+    assertThat(call(get("/api/library?search=Belajar UX"), author, 200).path("items").size()).isEqualTo(1);
     call(mutate(id, "/unpublish", ""), author, 200);
-    call(get("/api/library/" + pub), reader, 404);
+    call(get("/api/library/" + pub), author, 404);
     String v2 = content(id, s, "Konten versi kedua");
     assertThat(v2).isNotEqualTo(v);
     assertThat(call(get("/api/ebooks/" + id + "/versions"), author, 200).size()).isEqualTo(2);
     call(mutate(id, "/publish", ""), author, 409);
     assertThat(publish(id, v2)).isEqualTo(pub);
     assertThat(
-            call(get("/api/library/" + pub + "/progress"), reader, 200).get("completion").asInt())
+            call(get("/api/library/" + pub + "/progress"), author, 200).get("completion").asInt())
         .isZero();
   }
 
@@ -310,13 +347,13 @@ class BackendIntegrationTest {
         put("/api/library/" + pub + "/progress")
             .contentType("application/json")
             .content(body(Map.of("contentVersionId", v, "chapterIndex", 4, "completion", 70))),
-        reader,
+        author,
         400);
     call(
         put("/api/library/" + pub + "/progress")
             .contentType("application/json")
             .content(body(Map.of("contentVersionId", v, "chapterIndex", 0, "completion", 101))),
-        reader,
+        author,
         400);
   }
 
@@ -433,5 +470,44 @@ class BackendIntegrationTest {
     call(mutate(id, "/ai/content", ""), author, 400);
     assertThat(call(get("/api/ebooks/" + id), author, 200).get("currentVersionId").isNull())
         .isTrue();
+  }
+
+  @Test
+  void researchIsPrivatePersistentAndCachedUntilExplicitRefresh() throws Exception {
+    String id = create().get("id").asText();
+    var result = new com.thinkerlab.backend.api.response.ResearchResult(
+        List.of(new com.thinkerlab.backend.api.request.SourceInput("Grounded source", "example.org",
+            "https://example.org/research", "Ringkasan AI berdasarkan sumber web: Supported material")),
+        "<div>Search suggestions</div>", List.of("research topic"));
+    org.mockito.Mockito.when(gemini.research(org.mockito.ArgumentMatchers.anyString())).thenReturn(result);
+    call(get("/api/ebooks/" + id + "/ai/research"), stranger, 404);
+    call(mutate(id, "/ai/research", ""), stranger, 404);
+    call(mutate(id, "/ai/research", ""), reader, 403);
+    var found = call(mutate(id, "/ai/research", ""), author, 200);
+    assertThat(found.path("sources").size()).isEqualTo(1);
+    assertThat(found.path("sources").get(0).path("selected").asBoolean()).isFalse();
+    assertThat(found.path("searchSuggestionsHtml").asText()).contains("Search suggestions");
+    assertThat(call(get("/api/ebooks/" + id + "/ai/research"), author, 200).path("hasResearch").asBoolean()).isTrue();
+    call(mutate(id, "/ai/research", ""), author, 200);
+    org.mockito.Mockito.verify(gemini, org.mockito.Mockito.times(1)).research(org.mockito.ArgumentMatchers.anyString());
+    call(mutate(id, "/ai/research?refresh=true", ""), author, 200);
+    assertThat(call(get("/api/ebooks/" + id + "/sources"), author, 200).size()).isEqualTo(1);
+    var sid = found.path("sources").get(0).path("id").asText();
+    call(patch("/api/ebooks/" + id + "/sources/" + sid).header("If-Match", rev(id))
+        .contentType("application/json").content("{\"selected\":true,\"locked\":false}"), author, 200);
+    outline(id);
+    call(mutate(id, "/ai/research?refresh=true", ""), author, 409);
+    org.mockito.Mockito.verify(gemini, org.mockito.Mockito.times(2)).research(org.mockito.ArgumentMatchers.anyString());
+  }
+
+  @Test
+  void failedResearchDoesNotCreateFakeSources() throws Exception {
+    String id = create().get("id").asText();
+    org.mockito.Mockito.when(gemini.research(org.mockito.ArgumentMatchers.anyString()))
+        .thenThrow(new org.springframework.web.server.ResponseStatusException(
+            org.springframework.http.HttpStatus.BAD_GATEWAY, "No grounded results"));
+    call(mutate(id, "/ai/research", ""), author, 502);
+    assertThat(call(get("/api/ebooks/" + id + "/sources"), author, 200).size()).isZero();
+    assertThat(call(get("/api/ebooks/" + id + "/ai/research"), author, 200).path("hasResearch").asBoolean()).isFalse();
   }
 }

@@ -10,12 +10,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
-<<<<<<< HEAD
-    provideHttpClient(withInterceptors([apiInterceptor])),
-  ],
-=======
     provideHttpClient(withInterceptors([authInterceptor]))
   ]
->>>>>>> 9a89d1d (menghubungkan backend dan frontend, login dan register menggunakan akun database, page akun)
 };
 

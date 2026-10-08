@@ -2,7 +2,7 @@ import { Component, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../../core/services/auth.service';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { switchMap } from 'rxjs';
 import { environment } from '../../../../../environments/environment';
 
@@ -39,16 +39,7 @@ import { environment } from '../../../../../environments/environment';
                 />
               </svg>
             </span>
-<<<<<<< HEAD
-            <input
-              type="text"
-              formControlName="email"
-              placeholder="Username"
-              autocomplete="username"
-            />
-=======
             <input type="email" aria-label="Email" formControlName="email" placeholder="Email" autocomplete="username" />
->>>>>>> 9a89d1d (menghubungkan backend dan frontend, login dan register menggunakan akun database, page akun)
           </div>
 
           <div class="field">
@@ -75,21 +66,6 @@ import { environment } from '../../../../../environments/environment';
                 />
               </svg>
             </span>
-<<<<<<< HEAD
-            <input
-              type="password"
-              formControlName="password"
-              placeholder="Password"
-              autocomplete="current-password"
-            />
-          </div>
-
-          <button
-            type="submit"
-            class="primary-btn"
-            [disabled]="form.invalid || isSubmitting"
-          >
-=======
             <input [type]="showPassword ? 'text' : 'password'" aria-label="Password" formControlName="password" placeholder="Password" autocomplete="current-password" />
             <button
               type="button"
@@ -113,7 +89,6 @@ import { environment } from '../../../../../environments/environment';
           }
 
           <button type="submit" class="primary-btn" [disabled]="form.invalid || isSubmitting">
->>>>>>> 9a89d1d (menghubungkan backend dan frontend, login dan register menggunakan akun database, page akun)
             {{ isSubmitting ? 'Logging in...' : 'Login' }}
           </button>
         </form>
@@ -125,132 +100,7 @@ import { environment } from '../../../../../environments/environment';
       </div>
     </section>
   `,
-<<<<<<< HEAD
-  styles: [
-    `
-      :host {
-        display: block;
-        min-height: 100vh;
-      }
-
-      .login-page {
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #efefef;
-        padding: 24px;
-      }
-
-      .login-card {
-        width: min(100%, 420px);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-      }
-
-      h1 {
-        margin: 0;
-        font-size: 2.2rem;
-        font-weight: 700;
-        color: #1d1d1d;
-        letter-spacing: -0.04em;
-        text-align: center;
-      }
-
-      .subtitle {
-        margin: 18px 0 28px;
-        font-size: 1rem;
-        color: #313131;
-        text-align: center;
-      }
-
-      form {
-        width: 100%;
-        display: flex;
-        flex-direction: column;
-        gap: 18px;
-      }
-
-      .field {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.7);
-        padding: 0 0 10px;
-      }
-
-      .field-icon {
-        width: 22px;
-        height: 22px;
-        color: #171717;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-      }
-
-      .field-icon svg {
-        width: 20px;
-        height: 20px;
-      }
-
-      input {
-        flex: 1;
-        border: 0;
-        outline: none;
-        background: transparent;
-        color: #1b1b1b;
-        font-size: 1rem;
-        padding: 0;
-        min-height: 24px;
-      }
-
-      input::placeholder {
-        color: rgba(25, 25, 25, 0.7);
-      }
-
-      .primary-btn {
-        margin-top: 12px;
-        width: 100%;
-        border: 0;
-        border-radius: 12px;
-        background: #141414;
-        color: #ffffff;
-        font-size: 1rem;
-        font-weight: 700;
-        min-height: 44px;
-        cursor: pointer;
-        transition: opacity 0.2s ease;
-      }
-
-      .primary-btn:disabled {
-        opacity: 0.7;
-        cursor: not-allowed;
-      }
-
-      .footer {
-        margin-top: 36px;
-        font-size: 0.8rem;
-        color: #6f6f6f;
-        text-align: center;
-      }
-
-      @media (max-width: 480px) {
-        .login-card {
-          width: min(100%, 320px);
-        }
-
-        h1 {
-          font-size: 1.8rem;
-        }
-      }
-    `,
-  ],
-=======
   styleUrl: '../auth-page.css'
->>>>>>> 9a89d1d (menghubungkan backend dan frontend, login dan register menggunakan akun database, page akun)
 })
 export class LoginPageComponent {
   private readonly fb = inject(FormBuilder);
@@ -268,31 +118,9 @@ export class LoginPageComponent {
   isSubmitting = false;
 
   submit(): void {
-<<<<<<< HEAD
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
-      return;
-    }
-
-    this.isSubmitting = true;
-    this.authService.login(this.form.getRawValue()).subscribe({
-      next: () => this.router.navigateByUrl('/dashboard'),
-      error: (error) => {
-        window.alert(
-          error.error?.msg ||
-            error.error?.error_description ||
-            error.error?.detail ||
-            error.message ||
-            'Login gagal.',
-        );
-        this.isSubmitting = false;
-      },
-    });
-=======
   if (this.form.invalid || this.isSubmitting) {
     this.form.markAllAsTouched();
     return;
->>>>>>> 9a89d1d (menghubungkan backend dan frontend, login dan register menggunakan akun database, page akun)
   }
 
   this.isSubmitting = true;
@@ -309,10 +137,22 @@ export class LoginPageComponent {
       this.isSubmitting = false;
       void this.router.navigateByUrl('/dashboard');
     },
-    error: () => {
+    error: (error: unknown) => {
       this.isSubmitting = false;
-      this.errorMessage =
-        'Login belum selesai. Periksa email, password, konfirmasi email, dan koneksi backend.';
+      if (error instanceof HttpErrorResponse) {
+        this.errorMessage = error.status === 0
+          ? 'Login Supabase berhasil, tetapi backend tidak dapat dihubungi. Pastikan backend berjalan di localhost:8080 dan mengizinkan origin frontend.'
+          : error.status === 401
+          ? 'Login Supabase berhasil, tetapi sesi ditolak backend. Periksa konfigurasi Supabase dan JWT backend.'
+          : `Login Supabase berhasil, tetapi pengecekan akun di backend gagal (HTTP ${error.status}).`;
+      } else {
+        const code = (error as { code?: string } | null)?.code;
+        this.errorMessage = code === 'invalid_credentials'
+          ? 'Email atau password tidak sesuai.'
+          : code === 'email_not_confirmed'
+          ? 'Email belum dikonfirmasi. Buka tautan konfirmasi yang dikirim ke emailmu.'
+          : 'Supabase belum dapat menyelesaikan login. Periksa koneksi dan coba lagi.';
+      }
     }
   });
 }

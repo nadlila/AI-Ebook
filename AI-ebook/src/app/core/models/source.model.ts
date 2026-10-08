@@ -4,7 +4,9 @@ export interface Source {
   publisher: string;
   domain: string;
   url: string;
-  relevance: number;
+  relevance?: number;
+  excerpt?: string;
+  locked?: boolean;
   accessDate: string;
   selected: boolean;
 }

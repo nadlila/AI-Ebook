@@ -43,13 +43,13 @@
     <article class="access-card">
       <h2>Aktivitasmu di ThinkerLab</h2>
       @if (user.role === 'AUTHOR') {
-        <p>Satu akun untuk membuat ebook milikmu dan membaca ebook yang sudah diterbitkan.</p>
+        <p>Buat dan baca ebook pribadimu. Hanya kamu yang dapat mengakses ebook di akun ini.</p>
         <div class="actions">
           <a class="primary-button" routerLink="/ebooks/create">Buat ebook</a>
-          <a class="secondary-button" routerLink="/dashboard">Jelajahi library</a>
+          <a class="secondary-button" routerLink="/dashboard">Buka library saya</a>
         </div>
       } @else {
-        <p>Akunmu saat ini dapat membaca ebook yang sudah diterbitkan. Akses membuat ebook belum aktif.</p>
+        <p>Profil akunmu belum siap untuk membuat ebook. Hubungi pengelola aplikasi.</p>
         <a class="secondary-button" routerLink="/dashboard">Jelajahi library</a>
       }
     </article>

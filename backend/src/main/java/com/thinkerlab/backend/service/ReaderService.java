@@ -24,6 +24,7 @@ public class ReaderService {
   private final SourceRepository sources;
   private final Actor actor;
   private final JsonStore json;
+  private final ProjectRepository projects;
 
   public ReaderService(
       PublicationRepository publications,
@@ -32,7 +33,8 @@ public class ReaderService {
       IssueRepository issues,
       SourceRepository sources,
       Actor actor,
-      JsonStore json) {
+      JsonStore json,
+      ProjectRepository projects) {
     this.publications = publications;
     this.versions = versions;
     this.progress = progress;
@@ -40,12 +42,13 @@ public class ReaderService {
     this.sources = sources;
     this.actor = actor;
     this.json = json;
+    this.projects = projects;
   }
 
   public PageResult<Publication> library(String search, int page, int size) {
     var result =
-        publications.findByPublishedTrueAndTitleContainingIgnoreCase(
-            search, PageRequest.of(page, size, Sort.by("publishedAt").descending()));
+        publications.findOwnedLibrary(
+            actor.id(), search, PageRequest.of(page, size, Sort.by("publishedAt").descending()));
     return new PageResult<>(result.getContent(), result.getTotalElements(), page, size);
   }
 
@@ -53,8 +56,16 @@ public class ReaderService {
     return publications
         .findById(id)
         .filter(p -> p.published)
+        .filter(p -> projects.findById(p.projectId)
+            .map(project -> project.ownerId.equals(actor.id())).orElse(false))
         .orElseThrow(
             () -> ProjectService.error(HttpStatus.NOT_FOUND, "Publikasi tidak ditemukan."));
+  }
+
+  public Publication publicationForProject(UUID projectId) {
+    var publication = publications.findByProjectId(projectId)
+        .orElseThrow(() -> ProjectService.error(HttpStatus.NOT_FOUND, "Ebook belum siap dibaca."));
+    return visible(publication.id);
   }
 
   private ContentInput content(Publication pub) {
@@ -103,7 +114,8 @@ public class ReaderService {
         "chapterIndex",
         saved.map(r -> r.chapterIndex).orElse(0),
         "completion",
-        saved.map(r -> r.completion).orElse(0));
+        saved.map(r -> r.completion).orElse(0),
+        "updatedAt", saved.map(r -> r.updatedAt.toString()).orElse(""));
   }
 
   public ReadingProgress saveProgress(UUID id, ProgressInput in) {

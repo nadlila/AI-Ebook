@@ -17,4 +17,4 @@ public record ProjectInput(
     @NotBlank @Size(max = 64) String language,
     @NotBlank @Size(max = 100) String writingStyle,
     @NotNull Length contentLength,
-    @Size(max = 2048) String coverImage) {}
+    @Size(max = 350000) String coverImage) {}

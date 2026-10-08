@@ -18,12 +18,12 @@ import { QualityCheckPageComponent } from './features/ebook/quality/pages/qualit
 import { ReaderPageComponent } from './features/reader/pages/reader-page/reader-page.component';
 import { EbookDetailPageComponent } from './features/ebook/detail/pages/ebook-detail-page/ebook-detail-page.component';
 
-const signedIn: CanActivateFn = () =>
-  inject(AuthService).isAuthenticated() ||
-  inject(Router).createUrlTree(['/login']);
-const author: CanActivateFn = () =>
-  inject(AuthService).getSession()?.role === 'AUTHOR' ||
-  inject(Router).createUrlTree(['/dashboard']);
+const signedIn: CanActivateFn = async () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  try { return !!(await auth.restoreSession()) || router.createUrlTree(['/login']); }
+  catch { return router.createUrlTree(['/login']); }
+};
 export const routes: Routes = [
   { path: 'login', component: LoginPageComponent },
   { path: 'register', component: RegisterPageComponent },
@@ -31,6 +31,7 @@ export const routes: Routes = [
     path: '',
     component: AppShellComponent,
     canActivate: [signedIn],
+    canActivateChild: [signedIn],
     children: [
       {
         path: 'account',
@@ -42,47 +43,47 @@ export const routes: Routes = [
       {
         path: 'ebooks/create',
         component: CreateEbookPageComponent,
-        canActivate: [author],
+        canActivate: [signedIn],
       },
       {
         path: 'ebooks/create/preferences',
         component: LearningPreferencesPageComponent,
-        canActivate: [author],
+        canActivate: [signedIn],
       },
       {
         path: 'ebooks/:id/research',
         component: ResearchProgressPageComponent,
-        canActivate: [author],
+        canActivate: [signedIn],
       },
       {
         path: 'ebooks/:id/sources',
         component: SourceReviewPageComponent,
-        canActivate: [author],
+        canActivate: [signedIn],
       },
       {
         path: 'ebooks/:id/learning-plan',
         component: LearningPlanPageComponent,
-        canActivate: [author],
+        canActivate: [signedIn],
       },
       {
         path: 'ebooks/:id/outline',
         component: OutlinePageComponent,
-        canActivate: [author],
+        canActivate: [signedIn],
       },
       {
         path: 'ebooks/:id/generation',
         component: GenerationPageComponent,
-        canActivate: [author],
+        canActivate: [signedIn],
       },
       {
         path: 'ebooks/:id/editor',
         component: EditorPageComponent,
-        canActivate: [author],
+        canActivate: [signedIn],
       },
       {
         path: 'ebooks/:id/quality-check',
         component: QualityCheckPageComponent,
-        canActivate: [author],
+        canActivate: [signedIn],
       },
       { path: 'ebooks/:id/reader', component: ReaderPageComponent },
       { path: '', redirectTo: '/login', pathMatch: 'full' },
