@@ -17,7 +17,7 @@ public class CapabilityController {
   public Map<String, Object> capabilities() {
     return Map.of(
         "authentication", "SUPABASE_AUTH",
-        "roles", new String[] {"AUTHOR", "READER"},
+        "roles", new String[] {"AUTHOR"},
         "providedSources", true,
         "manualOutlineAndContent", true,
         "versioningAndPublishing", true,

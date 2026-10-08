@@ -2,16 +2,19 @@ import { Component, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../../core/services/auth.service';
+import { HttpClient } from '@angular/common/http';
+import { switchMap } from 'rxjs';
+import { environment } from '../../../../../environments/environment';
 
 @Component({
   selector: 'app-login-page',
   standalone: true,
   imports: [ReactiveFormsModule, RouterLink],
   template: `
-    <section class="login-page">
-      <div class="login-card">
+    <section class="auth-page">
+      <div class="auth-card">
         <h1>Selamat Datang</h1>
-        <p class="subtitle">Silahkan masuk untuk melanjutkan</p>
+        <p class="subtitle">Silakan masuk untuk melanjutkan</p>
 
         <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
           <div class="field">
@@ -36,12 +39,16 @@ import { AuthService } from '../../../../core/services/auth.service';
                 />
               </svg>
             </span>
+<<<<<<< HEAD
             <input
               type="text"
               formControlName="email"
               placeholder="Username"
               autocomplete="username"
             />
+=======
+            <input type="email" aria-label="Email" formControlName="email" placeholder="Email" autocomplete="username" />
+>>>>>>> 9a89d1d (menghubungkan backend dan frontend, login dan register menggunakan akun database, page akun)
           </div>
 
           <div class="field">
@@ -68,6 +75,7 @@ import { AuthService } from '../../../../core/services/auth.service';
                 />
               </svg>
             </span>
+<<<<<<< HEAD
             <input
               type="password"
               formControlName="password"
@@ -81,14 +89,43 @@ import { AuthService } from '../../../../core/services/auth.service';
             class="primary-btn"
             [disabled]="form.invalid || isSubmitting"
           >
+=======
+            <input [type]="showPassword ? 'text' : 'password'" aria-label="Password" formControlName="password" placeholder="Password" autocomplete="current-password" />
+            <button
+              type="button"
+              class="password-toggle"
+              (click)="showPassword = !showPassword"
+              [attr.aria-label]="showPassword ? 'Sembunyikan password' : 'Tampilkan password'"
+              [attr.title]="showPassword ? 'Sembunyikan password' : 'Tampilkan password'"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+                <circle cx="12" cy="12" r="3" />
+                @if (showPassword) {
+                  <path d="m3 3 18 18" />
+                }
+              </svg>
+            </button>
+          </div>
+
+          @if (errorMessage) {
+            <p class="form-message error-message" role="alert">{{ errorMessage }}</p>
+          }
+
+          <button type="submit" class="primary-btn" [disabled]="form.invalid || isSubmitting">
+>>>>>>> 9a89d1d (menghubungkan backend dan frontend, login dan register menggunakan akun database, page akun)
             {{ isSubmitting ? 'Logging in...' : 'Login' }}
           </button>
         </form>
 
-        <div class="footer">©2026 ThinkLab</div>
+        <p class="switch-text">
+          Belum punya akun? <a routerLink="/register">Daftar di sini</a>
+        </p>
+        <div class="footer">&copy;2026 ThinkLab</div>
       </div>
     </section>
   `,
+<<<<<<< HEAD
   styles: [
     `
       :host {
@@ -211,20 +248,27 @@ import { AuthService } from '../../../../core/services/auth.service';
       }
     `,
   ],
+=======
+  styleUrl: '../auth-page.css'
+>>>>>>> 9a89d1d (menghubungkan backend dan frontend, login dan register menggunakan akun database, page akun)
 })
 export class LoginPageComponent {
   private readonly fb = inject(FormBuilder);
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly http = inject(HttpClient);
+  errorMessage = '';
 
   form = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]],
   });
 
+  showPassword = false;
   isSubmitting = false;
 
   submit(): void {
+<<<<<<< HEAD
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -244,5 +288,32 @@ export class LoginPageComponent {
         this.isSubmitting = false;
       },
     });
+=======
+  if (this.form.invalid || this.isSubmitting) {
+    this.form.markAllAsTouched();
+    return;
+>>>>>>> 9a89d1d (menghubungkan backend dan frontend, login dan register menggunakan akun database, page akun)
   }
+
+  this.isSubmitting = true;
+  this.errorMessage = '';
+
+  this.authService.login(this.form.getRawValue()).pipe(
+    switchMap(() =>
+      this.http.get<{ id: string; role: 'AUTHOR' | 'READER' }>(
+        `${environment.apiBaseUrl}/auth/me`
+      )
+    )
+  ).subscribe({
+    next: () => {
+      this.isSubmitting = false;
+      void this.router.navigateByUrl('/dashboard');
+    },
+    error: () => {
+      this.isSubmitting = false;
+      this.errorMessage =
+        'Login belum selesai. Periksa email, password, konfirmasi email, dan koneksi backend.';
+    }
+  });
+}
 }

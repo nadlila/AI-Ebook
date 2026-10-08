@@ -1,0 +1,39 @@
+:host { display: block; }
+.account-page { max-width: 820px; margin: 0 auto; padding: 32px 24px 64px; color: #1d1d1d; }
+.back-link { color: #555; font-size: .9rem; text-decoration: none; }
+.back-link:hover { text-decoration: underline; }
+.page-heading { margin: 36px 0 28px; }
+.eyebrow { font-size: .72rem; letter-spacing: .16em; font-weight: 700; color: #777; }
+h1 { font-size: clamp(1.8rem, 5vw, 2.5rem); letter-spacing: -.04em; margin: 12px 0; }
+h2 { font-size: 1.15rem; margin: 0; }
+p { color: #626262; line-height: 1.6; }
+.profile-card, .access-card, .state-card { border: 1px solid #e3e3df; border-radius: 18px; padding: 28px; margin-bottom: 20px; }
+.profile-heading { display: flex; gap: 18px; align-items: center; padding-bottom: 24px; }
+.profile-heading > div:last-child { min-width: 0; }
+.profile-heading h2 { font-size: 1.4rem; overflow-wrap: anywhere; }
+.email { margin: 6px 0 0; overflow-wrap: anywhere; }
+.avatar { width: 64px; height: 64px; flex-shrink: 0; border-radius: 50%; background: #efefeb; display: grid; place-items: center; }
+.avatar svg { width: 30px; height: 30px; }
+dl { margin: 0; }
+.detail-row { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 16px; padding: 18px 0; border-top: 1px solid #ededeb; font-size: .94rem; }
+dt { color: #6a6a6a; }
+dd { margin: 0; overflow-wrap: anywhere; line-height: 1.5; }
+.account-id { font-family: monospace; font-size: .85rem; }
+.access-card { background: #f7f7f5; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.primary-button, .secondary-button { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-height: 44px; padding: 12px 18px; border-radius: 10px; font: inherit; font-size: .9rem; font-weight: 600; text-decoration: none; cursor: pointer; }
+.primary-button { background: #171717; color: white; border: 1px solid #171717; }
+.secondary-button { background: white; color: #252525; border: 1px solid #d5d5d0; }
+.primary-button:hover { background: #333; }
+.secondary-button:hover { background: #f0f0ed; }
+.logout-section { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 0; }
+.logout-section p { margin-bottom: 0; font-size: .9rem; }
+button:disabled { opacity: .6; cursor: wait; }
+a:focus-visible, button:focus-visible { outline: 2px solid #333; outline-offset: 4px; }
+.error-message { color: #a11d1d; }
+@media (max-width: 540px) {
+  .account-page { padding: 24px 16px 40px; }
+  .profile-card, .access-card, .state-card { padding: 20px; }
+  .detail-row { grid-template-columns: 1fr; gap: 6px; }
+  .logout-section { align-items: flex-start; flex-direction: column; }
+}

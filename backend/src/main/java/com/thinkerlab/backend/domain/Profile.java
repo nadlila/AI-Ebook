@@ -9,7 +9,7 @@ public class Profile {
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 16)
-  public Types.Role role = Types.Role.READER;
+  public Types.Role role = Types.Role.AUTHOR;
 
   @Version
   @Column(nullable = false)

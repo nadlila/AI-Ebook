@@ -32,6 +32,11 @@ export const routes: Routes = [
     component: AppShellComponent,
     canActivate: [signedIn],
     children: [
+      {
+        path: 'account',
+        loadComponent: () => import('./features/account/pages/account-page.component')
+          .then(m => m.AccountPageComponent)
+      },
       { path: 'dashboard', component: DashboardPageComponent },
       { path: 'ebooks/:id/detail', component: EbookDetailPageComponent },
       {
