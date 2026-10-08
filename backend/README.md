@@ -59,7 +59,11 @@ Frontend ZIP belum diubah. Service frontend saat ini memakai mock/localStorage d
 
 ## Struktur kode
 
-- `api/`: controller, DTO request dan validasi, respons error.
+- `controller/`: endpoint REST dan penerimaan request HTTP.
+- `api/request/`: DTO input dengan validasi; satu record per file.
+- `api/response/`: DTO hasil seperti quality report dan pagination.
+- `api/model/`: struktur bab dan block yang digunakan dalam kontrak API.
+- `exception/`: penanganan error HTTP terpusat melalui GlobalExceptionHandler.
 - `security/`: validasi JWT, CORS, identitas dan role.
 - `domain/`: entitas JPA, role, tipe dan status.
 - `repository/`: akses database.

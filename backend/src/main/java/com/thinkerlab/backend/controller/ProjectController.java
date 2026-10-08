@@ -1,6 +1,13 @@
-package com.thinkerlab.backend.api;
+package com.thinkerlab.backend.controller;
 
-import com.thinkerlab.backend.api.Contracts.*;
+import com.thinkerlab.backend.api.request.Approval;
+import com.thinkerlab.backend.api.request.ContentInput;
+import com.thinkerlab.backend.api.request.OutlineInput;
+import com.thinkerlab.backend.api.request.ProjectInput;
+import com.thinkerlab.backend.api.request.SourceInput;
+import com.thinkerlab.backend.api.request.SourceSelection;
+import com.thinkerlab.backend.api.response.PageResult;
+import com.thinkerlab.backend.api.response.QualityResult;
 import com.thinkerlab.backend.domain.*;
 import com.thinkerlab.backend.service.ProjectService;
 import jakarta.validation.Valid;

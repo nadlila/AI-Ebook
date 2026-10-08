@@ -1,4 +1,4 @@
-package com.thinkerlab.backend.api;
+package com.thinkerlab.backend.controller;
 
 import com.thinkerlab.backend.security.Actor;
 import java.util.Map;

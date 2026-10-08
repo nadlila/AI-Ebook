@@ -1,6 +1,10 @@
 package com.thinkerlab.backend.service;
 
-import com.thinkerlab.backend.api.Contracts.*;
+import com.thinkerlab.backend.api.model.Block;
+import com.thinkerlab.backend.api.request.ContentInput;
+import com.thinkerlab.backend.api.request.IssueInput;
+import com.thinkerlab.backend.api.request.ProgressInput;
+import com.thinkerlab.backend.api.response.PageResult;
 import com.thinkerlab.backend.domain.*;
 import com.thinkerlab.backend.repository.*;
 import com.thinkerlab.backend.security.Actor;

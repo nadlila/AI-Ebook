@@ -1,6 +1,16 @@
 package com.thinkerlab.backend.service;
 
-import com.thinkerlab.backend.api.Contracts.*;
+import com.thinkerlab.backend.api.model.Chapter;
+import com.thinkerlab.backend.api.model.ChapterContent;
+import com.thinkerlab.backend.api.request.Approval;
+import com.thinkerlab.backend.api.request.ContentInput;
+import com.thinkerlab.backend.api.request.OutlineInput;
+import com.thinkerlab.backend.api.request.ProjectInput;
+import com.thinkerlab.backend.api.request.SourceInput;
+import com.thinkerlab.backend.api.request.SourceSelection;
+import com.thinkerlab.backend.api.response.PageResult;
+import com.thinkerlab.backend.api.response.QualityIssue;
+import com.thinkerlab.backend.api.response.QualityResult;
 import com.thinkerlab.backend.domain.*;
 import com.thinkerlab.backend.domain.Types.*;
 import com.thinkerlab.backend.repository.*;

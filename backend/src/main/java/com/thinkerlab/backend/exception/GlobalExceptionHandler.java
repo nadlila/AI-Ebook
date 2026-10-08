@@ -1,4 +1,4 @@
-package com.thinkerlab.backend.api;
+package com.thinkerlab.backend.exception;
 
 import org.springframework.dao.*;
 import org.springframework.http.*;
@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
-public class Errors {
+public class GlobalExceptionHandler {
   @ExceptionHandler(ResponseStatusException.class)
   ResponseEntity<ProblemDetail> domain(ResponseStatusException e) {
     return ResponseEntity.status(e.getStatusCode())

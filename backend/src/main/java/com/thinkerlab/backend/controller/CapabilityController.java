@@ -1,4 +1,4 @@
-package com.thinkerlab.backend.api;
+package com.thinkerlab.backend.controller;
 
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
