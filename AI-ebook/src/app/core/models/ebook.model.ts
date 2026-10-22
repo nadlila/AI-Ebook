@@ -30,6 +30,7 @@ export type EbookStep =
   | 'SAVE'
   | 'MY_LIBRARY'
   | 'DETAIL'
+  | 'DETAIL'
   | 'READER';
 
 export type EbookTargetLevel = 'Beginner' | 'Intermediate' | 'Advanced';
@@ -45,15 +46,22 @@ export interface OutlineChapter {
   id: string;
   title: string;
   lessons: number;
+  level?: EbookTargetLevel;
+  description?: string;
+  estimatedWords?: number;
   approved?: boolean;
 }
 
 export interface EbookOutline {
+  candidates?: boolean;
+  learningOutcomes?: string[];
+  estimatedReadingTime?: string;
   title: string;
   chapters: OutlineChapter[];
 }
 
 export interface EbookSummary {
+  workflowDrafts?: Record<string, any>;
   lastReadAt?: string;
   id: string;
   title: string;
@@ -140,12 +148,15 @@ export interface Ebook extends EbookSummary {
   description?: string;
   learningGoal?: string;
   targetLevel?: EbookTargetLevel;
+  targetLevels?: EbookTargetLevel[];
   language?: string;
   writingStyle?: string;
   contentLength?: EbookContentLength;
   readingTime?: string;
   learningPlan?: LearningPlan;
   outline?: EbookOutline;
+  candidateChapters?: OutlineChapter[];
+  approvedOutlineId?: string;
   generation?: GenerationProgress;
   editorContent?: EditorChapterContent[];
   qualityCheck?: QualityCheckResult;

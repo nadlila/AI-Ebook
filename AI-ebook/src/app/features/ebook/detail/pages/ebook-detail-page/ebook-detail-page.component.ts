@@ -1,3 +1,4 @@
+import { StockCoverComponent } from './stock-cover.component';
 import { CommonModule } from '@angular/common';
 import { Component, inject, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -7,7 +8,7 @@ import { EbookService } from '../../../../../core/services/ebook.service';
 @Component({
   selector: 'app-ebook-detail-page',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, StockCoverComponent],
   template: `
     <section class="page-shell" *ngIf="ebook; else loading">
       <div class="main-container">
@@ -27,7 +28,7 @@ import { EbookService } from '../../../../../core/services/ebook.service';
                 *ngIf="ebook.coverImage"
                 class="cover-img-bg"
               />
-              <div class="cover-overlay">
+              <div class="cover-overlay" *ngIf="!ebook.coverImage">
                 <div class="badge">THINKERLAB EBOOK</div>
                 <h2 class="cover-title">{{ ebook.title }}</h2>
               </div>
@@ -37,7 +38,7 @@ import { EbookService } from '../../../../../core/services/ebook.service';
           <!-- Right: Book Info -->
           <main class="info-content">
             <div class="status-badge">
-              {{ ebook.status === 'READY_TO_READ' ? 'Ready to read' : 'Draft' }}
+              {{ ebook.status === 'READY_TO_READ' ? 'Ebook' : 'Preview' }}
             </div>
             <h1 class="book-title">{{ ebook.title }}</h1>
             <p class="book-subtitle">
@@ -83,7 +84,7 @@ import { EbookService } from '../../../../../core/services/ebook.service';
                 (click)="publishEbook()"
                 [disabled]="saving || uploadingCover || !ebook.editorContent?.length"
               >
-                Simpan ke My Library
+                Publish
               </button>
             </div>
             <div
@@ -102,10 +103,9 @@ import { EbookService } from '../../../../../core/services/ebook.service';
                 </button>
                 <button
                   type="button"
-                  (click)="generateCover(); coverMenu = false"
-                  disabled
+                  (click)="stockCoverOpen = true; coverMenu = false"
                 >
-                  Cover AI belum tersedia
+                  Cari gambar sesuai topik
                 </button>
                 <button
                   type="button"
@@ -117,6 +117,8 @@ import { EbookService } from '../../../../../core/services/ebook.service';
               </div>
             </div>
 
+            <app-stock-cover *ngIf="stockCoverOpen" [ebookId]="ebook.id" [ebookTitle]="ebook.title" [saving]="uploadingCover" [saveError]="actionError"
+              (closed)="stockCoverOpen = false" (coverChosen)="persistCover($event)"></app-stock-cover>
             <div class="stats-row">
               <div class="stat-box">
                 <span class="stat-label">Chapters</span>
@@ -127,7 +129,7 @@ import { EbookService } from '../../../../../core/services/ebook.service';
               <div class="stat-box">
                 <span class="stat-label">Reading time</span>
                 <span class="stat-value"
-                  >~ {{ ebook.readingTime || '35 min' }}</span
+                  >~ {{ estimatedReadingTime }}</span
                 >
               </div>
               <div class="stat-box">
@@ -264,10 +266,10 @@ import { EbookService } from '../../../../../core/services/ebook.service';
       }
 
       .status-badge {
-        font-size: 0.8rem;
-        color: #888;
+        font-size: 1.25rem;
+        color: #444;
         margin-bottom: 16px;
-        font-weight: 500;
+        font-weight: 700;
       }
 
       .book-title {
@@ -535,6 +537,12 @@ export class EbookDetailPageComponent implements OnInit {
   ebook: Ebook | undefined;
   chapterList: Array<{ title: string }> = [];
 
+  get estimatedReadingTime(): string {
+    const targetWords = this.ebook?.contentLength === 'Long' ? 6000
+      : this.ebook?.contentLength === 'Medium' ? 4000 : 2000;
+    return `${Math.ceil(targetWords / 200)} menit`;
+  }
+
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) {
@@ -572,9 +580,14 @@ export class EbookDetailPageComponent implements OnInit {
       this.actionError = 'Pilih gambar JPG/PNG maksimal 2 MB.';
       return;
     }
+    this.persistCover(file);
+  }
+  persistCover(file: File): void {
+    if (!this.ebook || this.uploadingCover || this.saving) return;
+    this.actionError = '';
     this.uploadingCover = true;
     this.ebookService.uploadCover(this.ebook.id, file).subscribe({
-      next: updated => { this.ebook = updated; this.uploadingCover = false; },
+      next: updated => { this.ebook = updated; this.uploadingCover = false; this.stockCoverOpen = false; },
       error: error => {
         this.uploadingCover = false;
         this.actionError = error.status === 413 ? 'Ukuran file terlalu besar. Maksimal 2 MB.'
@@ -582,9 +595,7 @@ export class EbookDetailPageComponent implements OnInit {
       }
     });
   }
-  generateCover(): void {
-    window.alert('Pembuatan cover AI belum tersedia.');
-  }
+  stockCoverOpen = false;
 
   publishEbook(): void {
     if (!this.ebook) return;

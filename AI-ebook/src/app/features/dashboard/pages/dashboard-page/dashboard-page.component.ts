@@ -105,6 +105,12 @@ import {
             <img [src]="item.coverImage" [alt]="item.title" />
             <div class="book-title">{{ item.title }}</div>
             <div class="book-meta">{{ item.chapterCount }} Chapters</div>
+            <progress [value]="item.creationProgress" max="100" aria-label="Progres pembuatan ebook"></progress>
+            <details (click)="$event.stopPropagation()"><summary>Tahapan pembuatan</summary><ol>
+              <li *ngFor="let stage of creationStages" [style.font-weight]="stage.step === item.currentStep ? '700' : '400'">
+                {{ stage.step === item.currentStep ? 'Aktif' : stage.percent < item.creationProgress ? 'Selesai' : 'Belum' }}: {{ stage.label }} ({{ stage.percent }}%)
+              </li>
+            </ol></details>
             <div class="book-meta">
               {{
                 item.status === 'READY_TO_READ' ? 'Reading' : draftStage(item)
@@ -327,19 +333,33 @@ export class DashboardPageComponent implements OnInit {
     return items.filter((item) => item.status !== 'READY_TO_READ');
   }
 
+  readonly creationStages = [
+    {step: 'LEARNING_PREFERENCES', label: 'Preferensi belajar', percent: 10},
+    {step: 'RESEARCH', label: 'Riset', percent: 20},
+    {step: 'SOURCE_REVIEW', label: 'Pilih sumber', percent: 30},
+    {step: 'LEARNING_PLAN', label: 'Rencana belajar', percent: 40},
+    {step: 'OUTLINE', label: 'Calon bab', percent: 50},
+    {step: 'OUTLINE_APPROVAL', label: 'Outline final', percent: 60},
+    {step: 'GENERATION', label: 'Penulisan bab', percent: 65},
+    {step: 'EDITOR', label: 'Editor', percent: 80},
+    {step: 'QUALITY_CHECK', label: 'Pemeriksaan kualitas', percent: 90},
+    {step: 'DETAIL', label: 'Review akhir', percent: 95},
+    {step: 'READER', label: 'Dipublikasikan', percent: 100},
+  ];
   draftStage(item: EbookSummary): string {
     const stages: Record<string, string> = {
       BASIC_INFORMATION: 'Creation',
       CREATE_EBOOK: 'Creation',
-      LEARNING_PREFERENCES: 'Creation',
-      RESEARCH: 'Research',
-      SOURCE_REVIEW: 'Source / Research',
-      LEARNING_PLAN: 'Source / Research',
-      OUTLINE: 'Outline',
-      OUTLINE_APPROVAL: 'Outline',
-      GENERATION: 'Generation',
-      EDITOR: 'Editor',
-      QUALITY_CHECK: 'Editor',
+      LEARNING_PREFERENCES: 'Preferensi belajar tersimpan',
+      RESEARCH: 'Siap riset / tambah sumber',
+      SOURCE_REVIEW: 'Tinjau dan pilih sumber',
+      LEARNING_PLAN: 'Susun rencana belajar',
+      OUTLINE: 'Pilih dan urutkan calon bab',
+      OUTLINE_APPROVAL: 'Tinjau outline final',
+      GENERATION: 'Lanjutkan penulisan bab',
+      EDITOR: 'Edit konten',
+      QUALITY_CHECK: 'Pemeriksaan kualitas',
+      DETAIL: 'Review akhir dan publikasi',
     };
     return stages[item.currentStep] || 'Creation';
   }

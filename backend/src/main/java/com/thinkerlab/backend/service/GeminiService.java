@@ -11,6 +11,7 @@ import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class GeminiService {
+  private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GeminiService.class);
   private final String key;
   private final String model;
   private final ObjectMapper mapper;
@@ -48,9 +49,12 @@ public class GeminiService {
               .header("x-goog-api-key", key)
               .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body)))
               .build();
-      var response = client.send(request, HttpResponse.BodyHandlers.ofString());
+      var response = sendWithRetry(request);
       if (response.statusCode() != 200) {
         String message = providerErrorMessage(response.statusCode(), response.body(), body.containsKey("tools"));
+        if (Set.of(502, 503, 504).contains(response.statusCode()))
+          message = "Gemini sementara tidak tersedia (HTTP " + response.statusCode()
+              + "). Sudah dicoba 3 kali. Tunggu beberapa saat lalu coba lagi; data tersimpan tetap aman.";
         throw ProjectService.error(HttpStatus.BAD_GATEWAY, message);
       }
       var candidate = mapper.readTree(response.body()).path("candidates").path(0);
@@ -67,6 +71,27 @@ public class GeminiService {
       throw ProjectService.error(
           HttpStatus.BAD_GATEWAY,
           "Tidak dapat membaca jawaban Gemini. Coba lagi; data sebelumnya tetap tersimpan.");
+    }
+  }
+
+  HttpResponse<String> sendAttempt(HttpRequest request) throws java.io.IOException, InterruptedException {
+    return client.send(request, HttpResponse.BodyHandlers.ofString());
+  }
+
+  void retryPause(long milliseconds) throws InterruptedException {
+    Thread.sleep(milliseconds);
+  }
+
+  HttpResponse<String> sendWithRetry(HttpRequest request) throws java.io.IOException, InterruptedException {
+    for (int attempt = 0; ; attempt++) {
+      var response = sendAttempt(request);
+      int status = response.statusCode();
+      boolean temporary = status == 502 || status == 503 || status == 504;
+      if (!temporary || attempt >= 2) return response;
+      long delay = 2000L << attempt;
+      // Never log request bodies, source text, credentials, or provider error bodies.
+      log.warn("Gemini HTTP {}; retry {}/2 in {} ms", status, attempt + 1, delay);
+      retryPause(delay);
     }
   }
 

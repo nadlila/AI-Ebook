@@ -23,8 +23,11 @@ import { timeout, TimeoutError } from 'rxjs';
           <label>Learning Outcomes</label>
           <textarea formControlName="outcomes" rows="4"></textarea>
 
-          <label>Estimated Reading Time</label>
-          <input type="text" formControlName="estimatedReadingTime" maxlength="100" />
+          <button type="button" (click)="saveDraft()" [disabled]="isLoading || isSubmitting || draftSaving">Simpan draft rencana belajar</button>
+          <p role="status">{{ draftMessage }}</p>
+          <label for="estimated-reading-time">Estimasi waktu baca</label>
+          <input id="estimated-reading-time" type="text" formControlName="estimatedReadingTime" readonly aria-describedby="reading-time-help" />
+          <p id="reading-time-help">Dihitung otomatis dari target {{ targetWords | number }} kata, dengan asumsi 200 kata per menit.</p>
 
           @if (isLoading) {
             <p class="status-message" role="status">Memuat rencana belajar...</p>
@@ -143,6 +146,18 @@ export class LearningPlanPageComponent implements OnInit {
     estimatedReadingTime: ['', [Validators.required, Validators.maxLength(100)]]
   });
 
+  draftSaving = false;
+  draftMessage = '';
+  saveDraft(): void {
+    const id = this.route.snapshot.paramMap.get('id');
+    if (!id || this.isSubmitting || this.draftSaving) return;
+    this.draftSaving = true;
+    this.ebookService.saveWorkflow(id, 'LEARNING_PLAN', this.form.getRawValue()).subscribe({
+      next: () => { this.draftSaving = false; this.draftMessage = 'Draft rencana belajar tersimpan.'; },
+      error: () => { this.draftSaving = false; this.draftMessage = 'Draft gagal disimpan. Coba lagi.'; }
+    });
+  }
+  targetWords = 2000;
   isSubmitting = false;
   isLoading = false;
   errorMessage = '';
@@ -160,10 +175,12 @@ export class LearningPlanPageComponent implements OnInit {
         return;
       }
 
+      this.targetWords = ebook.contentLength === 'Long' ? 6000 : ebook.contentLength === 'Medium' ? 4000 : 2000;
+      const draft = ebook.workflowDrafts?.['LEARNING_PLAN'];
       this.form.patchValue({
-        goal: ebook.learningPlan?.goal ?? ebook.learningGoal ?? '',
-        outcomes: ebook.learningPlan?.outcomes.join('\n') ?? '',
-        estimatedReadingTime: ebook.learningPlan?.estimatedReadingTime ?? '45 min'
+        goal: draft?.goal ?? ebook.learningPlan?.goal ?? ebook.learningGoal ?? '',
+        outcomes: draft?.outcomes ? (Array.isArray(draft.outcomes) ? draft.outcomes.join('\n') : draft.outcomes) : ebook.learningPlan?.outcomes.join('\n') ?? '',
+        estimatedReadingTime: `${Math.ceil(this.targetWords / 200)} menit`
       });
     }, error: (error: unknown) => {
       this.isLoading = false;
@@ -172,7 +189,7 @@ export class LearningPlanPageComponent implements OnInit {
   }
 
   continueToOutline(): void {
-    if (this.isSubmitting || this.isLoading) return;
+    if (this.isSubmitting || this.isLoading || this.draftSaving) return;
     this.errorMessage = '';
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -189,7 +206,7 @@ export class LearningPlanPageComponent implements OnInit {
     const plan: LearningPlan = {
       goal: raw.goal.trim(),
       outcomes: raw.outcomes.split('\n').map((line) => line.trim()).filter(Boolean),
-      estimatedReadingTime: raw.estimatedReadingTime.trim()
+      estimatedReadingTime: `${Math.ceil(this.targetWords / 200)} menit`
     };
     if (!plan.goal || !plan.outcomes.length || !plan.estimatedReadingTime) {
       this.errorMessage = 'Isi tujuan belajar, minimal satu hasil belajar, dan estimasi waktu baca.';

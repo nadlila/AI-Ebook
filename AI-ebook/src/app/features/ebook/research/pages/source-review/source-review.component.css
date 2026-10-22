@@ -36,6 +36,6 @@ a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid 
 .source-form { margin: 24px 0; padding: 24px; background: #fafaf8; border: 1px solid #deded9; border-radius: 14px; }
 .source-form fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .source-form label { margin: 14px 0 6px; }
-.source-form input, .source-form textarea { box-sizing: border-box; width: 100%; height: auto; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font: inherit; background: white; }
+.source-form input, .source-form textarea, .source-form select { box-sizing: border-box; width: 100%; height: auto; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font: inherit; background: white; }
 .source-form textarea { resize: vertical; }
 .source-form p { font-size: .85rem; color: #606060; line-height: 1.5; }

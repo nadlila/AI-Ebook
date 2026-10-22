@@ -139,11 +139,41 @@ public class ProjectService {
     p.description = in.description();
     p.learningGoal = in.learningGoal();
     p.audience = in.audience();
-    p.targetLevel = in.targetLevel();
+    p.targetLevels = in.targetLevels().stream().distinct().sorted().toList();
+    p.targetLevel = p.targetLevels.getFirst();
     p.language = in.language();
     p.writingStyle = in.writingStyle();
     p.contentLength = in.contentLength();
     p.coverImage = in.coverImage();
+  }
+
+  private void clearWorkflowDraft(Project p, String step) {
+    if (p.workflowDrafts == null) return;
+    Map<String, Object> drafts = new LinkedHashMap<>(json.read(p.workflowDrafts, Map.class));
+    drafts.remove(step);
+    p.workflowDrafts = json.write(drafts);
+  }
+
+  public Project saveWorkflow(UUID id, long revision, com.thinkerlab.backend.api.request.WorkflowInput input) {
+    var p = owned(id);
+    match(p, revision);
+    editable(p);
+    if (input.draft() != null) {
+      try { json.read(input.draft(), Map.class); }
+      catch (Exception e) { throw error(HttpStatus.BAD_REQUEST, "Draft harus berupa objek JSON."); }
+      Map<String, Object> drafts = p.workflowDrafts == null ? new LinkedHashMap<>()
+          : new LinkedHashMap<>(json.read(p.workflowDrafts, Map.class));
+      drafts.put(input.step(), input.draft());
+      String payload = json.write(drafts);
+      if (payload.length() > 2000000) throw error(HttpStatus.BAD_REQUEST, "Draft terlalu besar.");
+      p.workflowDrafts = payload;
+    }
+    if (input.step().equals("RESEARCH")) clearWorkflowDraft(p, "LEARNING_PREFERENCES");
+    if (input.step().equals("LEARNING_PLAN")) clearWorkflowDraft(p, "SOURCE_REVIEW");
+    p.workflowStep = input.step();
+    audit(p, "WORKFLOW_SAVED", p.id);
+    projects.flush();
+    return p;
   }
 
   public Project uploadCover(UUID id, long revision, org.springframework.web.multipart.MultipartFile file) {
@@ -223,6 +253,7 @@ public class ProjectService {
       source.accessDate = Instant.now();
       sources.save(source);
     }
+    p.workflowStep = "SOURCE_REVIEW";
     p.researchPayload = json.write(result);
     p.status = Status.RESEARCH_READY;
     audit(p, "WEB_RESEARCH_SAVED", p.id);
@@ -245,7 +276,33 @@ public class ProjectService {
     source.accessDate = Instant.now();
     sources.save(source);
     p.status = Status.RESEARCH_READY;
+    p.workflowStep = "SOURCE_REVIEW";
     audit(p, "SOURCE_ADDED", source.id);
+    projects.flush();
+    return source;
+  }
+
+  public Source uploadSource(UUID id, long revision,
+      org.springframework.web.multipart.MultipartFile file, String title, String publisher, String url) {
+    var p = owned(id);
+    match(p, revision);
+    sourceEditable(p);
+    if (!url.isBlank()) httpUrl(url);
+    var extracted = PdfSources.extract(file);
+    var source = new Source();
+    source.id = UUID.randomUUID();
+    source.projectId = id;
+    source.title = title.strip();
+    source.publisher = publisher.strip();
+    source.url = url.strip();
+    source.excerpt = extracted.text();
+    source.fileName = extracted.fileName();
+    source.pageCount = extracted.pages();
+    source.accessDate = Instant.now();
+    sources.save(source);
+    p.status = Status.RESEARCH_READY;
+    p.workflowStep = "SOURCE_REVIEW";
+    audit(p, "PDF_SOURCE_ADDED", source.id);
     projects.flush();
     return source;
   }
@@ -299,10 +356,12 @@ public class ProjectService {
     var o = new Outline();
     o.id = UUID.randomUUID();
     o.projectId = id;
-    o.payload = json.write(in);
+    clearWorkflowDraft(p, "OUTLINE");
+    o.payload = json.write(WordBudget.allocate(p.contentLength, LearningLevels.normalize(p, in, HttpStatus.BAD_REQUEST)));
     outlines.save(o);
     p.approvedOutlineId = null;
     p.status = Status.OUTLINE_REVIEW;
+    p.workflowStep = in.candidates() ? "OUTLINE" : "OUTLINE_APPROVAL";
     audit(p, "OUTLINE_SAVED", o.id);
     projects.flush();
     return o;
@@ -324,9 +383,12 @@ public class ProjectService {
       throw error(HttpStatus.CONFLICT, "Hanya outline terbaru yang dapat disetujui.");
     if (sources.findByProjectIdOrderByCreatedAt(id).stream().noneMatch(s -> s.selected))
       throw error(HttpStatus.CONFLICT, "Pilih sumber sebelum approval.");
+    if (json.read(o.payload, OutlineInput.class).candidates())
+      throw error(HttpStatus.CONFLICT, "Pilih bab dan susun outline final sebelum approval.");
     o.approvedAt = Instant.now();
     p.approvedOutlineId = o.id;
     p.status = Status.OUTLINE_REVIEW;
+    p.workflowStep = "GENERATION";
     audit(p, "OUTLINE_APPROVED", o.id);
     projects.flush();
     return p;
@@ -362,6 +424,8 @@ public class ProjectService {
     v.id = UUID.randomUUID();
     v.projectId = id;
     v.outlineId = p.approvedOutlineId;
+    p.workflowStep = "EDITOR";
+    clearWorkflowDraft(p, "EDITOR");
     v.payload = json.write(in);
     v.createdBy = actor.id();
     versions.save(v);
@@ -420,7 +484,10 @@ public class ProjectService {
   }
 
   public Map<String, Object> content(UUID id) {
-    return contentView(current(owned(id)));
+    var p = owned(id);
+    var view = new LinkedHashMap<>(contentView(current(p)));
+    view.put("wordCount", WordBudget.report(p.contentLength, (ContentInput) view.get("content")));
+    return view;
   }
 
   public ContentVersion restore(UUID id, UUID versionId, long revision) {

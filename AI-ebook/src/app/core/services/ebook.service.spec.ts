@@ -62,4 +62,45 @@ describe('Private ebook persistence', () => {
     service.getLibrary().subscribe({next: () => fail('Should reject'), error: error => expect(error.status).toBe(401)});
     http.expectOne(base + '/ebooks?page=0&size=100').flush({}, {status: 401, statusText: 'Unauthorized'});
   });
+
+  it('resumes the saved learning plan stage with a specific percentage', () => {
+    service.getEbookById('project-a').subscribe(book => {
+      expect(book.currentStep).toBe('LEARNING_PLAN');
+      expect(book.creationProgress).toBe(40);
+      expect(book.workflowDrafts?.['LEARNING_PLAN'].goal).toBe('Saved goal');
+    });
+    http.expectOne(base + '/ebooks/project-a').flush({ ...project, status: 'RESEARCH_READY',
+      workflowStep: 'LEARNING_PLAN', workflowDrafts: JSON.stringify({ LEARNING_PLAN: JSON.stringify({goal: 'Saved goal'}) }) });
+    http.expectOne(base + '/ebooks/project-a/sources').flush([]);
+    http.expectOne(base + '/ebooks/project-a/outlines').flush([]);
+  });
+
+  it('saves an incomplete stage draft with project revision protection', () => {
+    service.saveWorkflow('project-a', 'OUTLINE', {selected: ['a'], order: ['b', 'a']}).subscribe(book => {
+      expect(book.currentStep).toBe('OUTLINE');
+      expect(book.creationProgress).toBe(50);
+    });
+    http.expectOne(base + '/ebooks/project-a').flush({...project, revision: 7});
+    const saved = http.expectOne(base + '/ebooks/project-a/workflow');
+    expect(saved.request.method).toBe('PUT');
+    expect(saved.request.headers.get('If-Match')).toBe('7');
+    expect(JSON.parse(saved.request.body.draft).order).toEqual(['b', 'a']);
+    saved.flush({...project, status: 'OUTLINE_REVIEW', workflowStep: 'OUTLINE'});
+  });
+
+  it('reports partially generated chapters without treating content as complete', () => {
+    service.getGenerationStatus('project-a').subscribe(progress => {
+      expect(progress.completedChapters).toBe(1);
+      expect(progress.progress).toBe(50);
+      expect(progress.chapters[0].status).toBe('completed');
+      expect(progress.chapters[1].status).toBe('pending');
+    });
+    http.expectOne(base + '/ebooks/project-a').flush({...project, status: 'OUTLINE_REVIEW',
+      approvedOutlineId: 'outline-a', workflowStep: 'GENERATION',
+      workflowDrafts: JSON.stringify({GENERATION: JSON.stringify({outlineId: 'outline-a', chapters: [{chapterId: 'a'}]})})});
+    http.expectOne(base + '/ebooks/project-a/sources').flush([]);
+    http.expectOne(base + '/ebooks/project-a/outlines').flush([{id:'outline-a', outline:{
+      title: 'Book', learningOutcomes: [], chapters: [{id:'a', title:'A'}, {id:'b', title:'B'}]
+    }}]);
+  });
 });

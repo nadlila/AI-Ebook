@@ -1,3 +1,5 @@
+import { forkJoin } from 'rxjs';
+import { EbookService } from '../../../../../core/services/ebook.service';
 import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, inject, OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -15,12 +17,15 @@ import { Source } from '../../../../../core/models/source.model';
 })
 export class SourceReviewPageComponent implements OnInit {
   private readonly service = inject(ResearchService);
+  private readonly ebooks = inject(EbookService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private get id(): string { return this.route.snapshot.paramMap.get('id')!; }
   sources: Source[] = [];
   draft = { title: '', publisher: '', url: '', excerpt: '' };
+  sourceType: 'pdf' | 'excerpt' = 'pdf';
+  pdfFile: File | null = null;
   loading = true;
   adding = false;
   saving = false;
@@ -36,9 +41,14 @@ export class SourceReviewPageComponent implements OnInit {
     this.loading = true;
     this.errorMessage = '';
     this.loadFailed = false;
-    this.service.getResearch(this.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: result => {
-        this.apply(result);
+    forkJoin({ research: this.service.getResearch(this.id), draft: this.ebooks.getWorkflowDraft(this.id, 'SOURCE_REVIEW') }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: ({ research, draft }) => {
+        this.apply(research);
+        if (draft) {
+          this.draft = draft.input || this.draft;
+          this.sourceType = draft.sourceType || this.sourceType;
+          if (Array.isArray(draft.selected)) this.sources.forEach(s => s.selected = draft.selected.includes(s.id));
+        }
         this.loading = false;
       },
       error: error => { this.loading = false; this.loadFailed = true; this.showError(error); }
@@ -51,20 +61,29 @@ export class SourceReviewPageComponent implements OnInit {
       title: this.draft.title.trim(), publisher: this.draft.publisher.trim(),
       url: this.draft.url.trim(), excerpt: this.draft.excerpt.trim()
     };
-    if (Object.values(input).some(value => !value)) {
+    if (!input.title || !input.publisher || (this.sourceType === 'excerpt' && (!input.url || !input.excerpt))) {
       this.errorMessage = 'Lengkapi judul, penerbit, URL, dan kutipan isi sumber.';
       return;
     }
+    if (this.sourceType === 'pdf' && !this.pdfFile) {
+      this.errorMessage = 'Pilih file PDF terlebih dahulu.';
+      return;
+    }
     try {
+      if (input.url) {
       const url = new URL(input.url);
       if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password) throw new Error();
+      }
     } catch {
       this.errorMessage = 'URL sumber harus berupa alamat http:// atau https:// yang valid.';
       return;
     }
     this.adding = true;
     this.errorMessage = '';
-    this.service.addSource(this.id, input).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    const request = this.sourceType === 'pdf'
+      ? this.service.uploadPdf(this.id, this.pdfFile!, input)
+      : this.service.addSource(this.id, input);
+    request.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: source => {
         this.sources = [...this.sources, { ...source, selected: true }];
         this.draft = { title: '', publisher: '', url: '', excerpt: '' };
@@ -72,6 +91,30 @@ export class SourceReviewPageComponent implements OnInit {
       },
       error: error => { this.adding = false; this.showError(error); }
     });
+  }
+
+  choosePdf(event: Event): void {
+    const element = event.target as HTMLInputElement;
+    const file = element.files?.[0] ?? null;
+    this.errorMessage = '';
+    this.pdfFile = null;
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.pdf') || file.size > 10 * 1024 * 1024 || !file.size) {
+      this.errorMessage = 'Pilih PDF berukuran maksimal 10 MB.';
+      element.value = '';
+      return;
+    }
+    this.pdfFile = file;
+  }
+
+  draftMessage = '';
+  saveDraft(): void {
+    if (this.busy || this.frozen || this.loadFailed) return;
+    this.saving = true;
+    this.ebooks.saveWorkflow(this.id, 'SOURCE_REVIEW', {
+      input: this.draft, sourceType: this.sourceType, selected: this.sources.filter(s => s.selected).map(s => s.id)
+    }).subscribe({ next: () => { this.saving = false; this.draftMessage = 'Draft sumber tersimpan. File PDF perlu diunggah agar tersimpan.'; },
+      error: e => { this.saving = false; this.showError(e); } });
   }
 
   private apply(result: ResearchView): void {

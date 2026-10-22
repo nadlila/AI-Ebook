@@ -17,4 +17,14 @@ public record ProjectInput(
     @NotBlank @Size(max = 64) String language,
     @NotBlank @Size(max = 100) String writingStyle,
     @NotNull Length contentLength,
-    @Size(max = 350000) String coverImage) {}
+    @Size(max = 350000) String coverImage,
+    @Size(min = 1, max = 3) java.util.List<@NotNull Level> targetLevels) {
+  public ProjectInput {
+    if (targetLevels == null && targetLevel != null) targetLevels = java.util.List.of(targetLevel);
+    if (targetLevel == null && targetLevels != null && !targetLevels.isEmpty()) targetLevel = targetLevels.getFirst();
+  }
+  public ProjectInput(ContentType type, String title, String description, String learningGoal, String audience,
+      Level targetLevel, String language, String writingStyle, Length contentLength, String coverImage) {
+    this(type, title, description, learningGoal, audience, targetLevel, language, writingStyle, contentLength, coverImage, null);
+  }
+}

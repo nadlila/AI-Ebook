@@ -38,6 +38,10 @@ public class Project {
   @Column(length = 32)
   public Types.Level targetLevel;
 
+  @Convert(converter = LevelListConverter.class)
+  @Column(length = 64)
+  public java.util.List<Types.Level> targetLevels;
+
   @Column(length = 64)
   public String language;
 
@@ -51,6 +55,10 @@ public class Project {
   @Column(columnDefinition = "text")
   public String coverImage;
 
+  @Column(length = 32)
+  public String workflowStep;
+  @Column(columnDefinition = "text")
+  public String workflowDrafts;
   public java.util.UUID approvedOutlineId;
   public java.util.UUID currentVersionId;
   public java.util.UUID approvedVersionId;

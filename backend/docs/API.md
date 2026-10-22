@@ -153,3 +153,32 @@ Status backend: DRAFT, RESEARCH_READY, OUTLINE_REVIEW, GENERATING (disediakan un
 - 409: state tidak sesuai, stale revision, atau konflik database.
 
 Error domain/validasi body berbentuk RFC ProblemDetail (`status`, `detail`, dan bila relevan `errors`). Respons bawaan framework/security dapat berbeda, jadi frontend tetap harus menangani status HTTP tanpa mengasumsikan setiap error memiliki JSON body.
+
+### Sumber PDF
+
+Jalankan SQL `src/main/resources/db/V004__pdf_sources.sql` sebelum memulai backend dengan database yang sudah ada (ddl-auto=validate).
+
+POST /api/ebooks/{id}/sources/pdf menggunakan multipart/form-data: file, title, publisher, dan url opsional; header If-Match wajib. Respons 201 berupa Source dengan fileName, pageCount, dan excerpt berisi teks semua halaman dengan penanda halaman. PDF asli tidak disimpan. Batas: 10 MB, 300 halaman, 500.000 karakter per PDF dan total sumber terpilih per permintaan AI. Tidak ada pemotongan teks otomatis. PDF terkunci, rusak, atau halaman tanpa teks ditolak dengan 400; lakukan OCR terlebih dahulu. Kutipan manual tetap melalui POST /sources.
+
+### Target kata dan pilihan bab
+
+ContentLength Short: target 2000 (1800-2200), Medium: 4000 (3600-4400), Long: target dan maksimum 6000 (5400-6000).
+POST /api/ebooks/{id}/ai/outline menghasilkan calon bab dengan candidates=true. Bab memiliki description dan estimatedWords.
+POST /api/ebooks/{id}/ai/outline/finalize dengan body {"chapterIds":["chapter-3","chapter-1"]} dan If-Match menghasilkan outline final dalam urutan pilihan. AI memperjelas cakupan dan kedalaman; server membagi ulang seluruh target kata berdasarkan bobot lessons. ID duplikat/tidak dikenal ditolak. Pilihan calon bab asli tetap tersedia dalam riwayat outline. Approval calon bab ditolak; tinjau outline final sebelum approve.
+Konten dibuat per bab dengan target kata yang disetujui dan maksimal satu percobaan perbaikan panjang per bab. Hasil lengkap disimpan setelah semua bab selesai; kegagalan tidak menyimpan konten parsial. Proses dapat memerlukan beberapa menit.
+GET /api/ebooks/{id}/content menyertakan wordCount {target,min,max,actual,withinRange}. Penghitungan mencakup heading, paragraf, callout, dan item list; judul bab serta blok citation tidak dihitung. Jumlah kata aktual juga dihitung ulang saat mengedit. Target merupakan estimasi; hasil di luar rentang tetap dapat ditinjau dan diedit. Field baru disimpan di JSON outline, sehingga tidak membutuhkan migrasi SQL tambahan. Outline lama tetap dapat dibaca.
+
+Gemini: respons HTTP 502/503/504 dicoba ulang maksimal dua kali dengan jeda 2 dan 4 detik (total tiga percobaan). Berlaku untuk research, outline, dan setiap permintaan bab. Jika tetap gagal, backend mengembalikan 502 dengan pesan jumlah percobaan. HTTP 400/401/403/429 tidak diulang otomatis. Retry ini hanya menangani respons HTTP sementara; panjang hasil tetap diperiksa terpisah.
+
+
+### Progres dan draft per tahap
+
+Terapkan src/main/resources/db/V005__workflow_progress.sql sebelum restart backend (ddl-auto=validate). PUT /api/ebooks/{id}/workflow memerlukan If-Match dan body {step, draft}, dengan draft berupa string objek JSON opsional (maksimal 1 juta karakter; total draft maksimal 2 juta). Respons Project menyertakan workflowStep dan workflowDrafts. Draft disimpan per tahap, bukan menimpa tahap lain. Kepemilikan dan revision tetap diperiksa.
+Frontend menyediakan Simpan draft untuk preferensi, sumber dan pilihan sumber, learning plan, pilihan/urutan bab, dan editor. Continue menyimpan hasil tahap dan titik lanjut. File PDF lokal harus diunggah sebelum file tersebut tersimpan; draft sumber hanya menyimpan teks formulir dan pilihan. Belum ada autosave pada setiap ketikan.
+Progres: preferensi 10%, riset 20%, sumber 30%, learning plan 40%, calon bab 50%, outline final 60%, generation 65%-80% sesuai bab tersimpan, editor 80%, quality check 90%, detail/review akhir 95%, published 100%. Persentase merupakan tahapan alur, bukan estimasi waktu. Draft lama tanpa checkpoint memakai fallback berdasarkan artefak tersimpan.
+Generation menyimpan setiap bab berhasil ke draft GENERATION beserta approved outline ID. Setelah gagal, permintaan berikutnya melanjutkan prefix bab yang cocok dengan outline yang disetujui. Outline berbeda tidak memakai draft generation sebelumnya. Setelah seluruh bab selesai, versi konten lengkap dibuat seperti biasa.
+
+### Cakupan level pembelajaran
+
+Jalankan src/main/resources/db/V006__multiple_learning_levels.sql sebelum restart backend. targetLevels adalah array satu sampai tiga nilai Beginner, Intermediate, Advanced. Field targetLevel tunggal tetap diterima untuk kompatibilitas; proyek lama dimigrasikan dengan level aslinya.
+Setiap bab outline memiliki field level. Semua level yang dipilih harus memiliki minimal satu bab dan urutannya tidak menurun. Penghapusan cakupan level saat memilih bab ditolak sebelum panggilan AI. Total target kata tidak berubah. Tidak ada permintaan AI tambahan khusus untuk penentuan level: level disertakan dalam permintaan outline/finalisasi/konten yang sudah ada.

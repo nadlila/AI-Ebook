@@ -56,6 +56,59 @@ class BackendIntegrationTest {
     assertThat(call(get("/api/ebooks/" + id), author, 200).get("coverImage").asText()).isEqualTo(cover);
   }
 
+  @Test
+  void pdfUploadExtractsEveryPageAndChecksOwnershipAndRevision() throws Exception {
+    String id = create().get("id").asText();
+    byte[] bytes;
+    try (var document = new org.apache.pdfbox.pdmodel.PDDocument();
+        var output = new java.io.ByteArrayOutputStream()) {
+      for (String text : List.of("First page evidence", "Second page evidence")) {
+        var page = new org.apache.pdfbox.pdmodel.PDPage();
+        document.addPage(page);
+        try (var content = new org.apache.pdfbox.pdmodel.PDPageContentStream(document, page)) {
+          content.beginText();
+          content.setFont(new org.apache.pdfbox.pdmodel.font.PDType1Font(
+              org.apache.pdfbox.pdmodel.font.Standard14Fonts.FontName.HELVETICA), 12);
+          content.showText(text);
+          content.endText();
+        }
+      }
+      document.save(output);
+      bytes = output.toByteArray();
+    }
+    var file = new org.springframework.mock.web.MockMultipartFile("file", "journal.pdf", "application/pdf", bytes);
+    String revision = rev(id);
+    mvc.perform(multipart("/api/ebooks/" + id + "/sources/pdf").file(file)
+        .param("title", "Journal").param("publisher", "Author").header("If-Match", revision).with(as(stranger)))
+        .andExpect(status().isNotFound());
+    mvc.perform(multipart("/api/ebooks/" + id + "/sources/pdf").file(file)
+        .param("title", "Journal").param("publisher", "Author").header("If-Match", revision).with(as(author)))
+        .andExpect(status().isCreated()).andExpect(jsonPath("$.pageCount").value(2))
+        .andExpect(jsonPath("$.fileName").value("journal.pdf"));
+    var source = call(get("/api/ebooks/" + id + "/sources"), author, 200).get(0);
+    assertThat(source.get("excerpt").asText()).contains("[Halaman 1]", "First page evidence", "[Halaman 2]", "Second page evidence");
+    mvc.perform(multipart("/api/ebooks/" + id + "/sources/pdf").file(file)
+        .param("title", "Journal").param("publisher", "Author").header("If-Match", revision).with(as(author)))
+        .andExpect(status().isConflict());
+    var fake = new org.springframework.mock.web.MockMultipartFile("file", "fake.pdf", "application/pdf", "fake".getBytes());
+    mvc.perform(multipart("/api/ebooks/" + id + "/sources/pdf").file(fake)
+        .param("title", "Journal").param("publisher", "Author").header("If-Match", rev(id)).with(as(author)))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void multipleLearningLevelsPersistAndEmptySelectionsAreRejected() throws Exception {
+    var input = (tools.jackson.databind.node.ObjectNode) json.readTree(INPUT);
+    input.putArray("targetLevels").add("Advanced").add("Beginner").add("Intermediate");
+    var created = call(post("/api/ebooks").contentType("application/json").content(body(input)), author, 201);
+    var loaded = call(get("/api/ebooks/" + created.path("id").asText()), author, 200);
+    assertThat(loaded.path("targetLevels").size()).isEqualTo(3);
+    assertThat(loaded.path("targetLevels").get(0).asText()).isEqualTo("Beginner");
+    assertThat(loaded.path("targetLevels").get(2).asText()).isEqualTo("Advanced");
+    input.putArray("targetLevels");
+    call(post("/api/ebooks").contentType("application/json").content(body(input)), author, 400);
+  }
+
   @BeforeEach
   void authors() {
     for (var id : List.of(author, stranger)) {
@@ -411,6 +464,11 @@ class BackendIntegrationTest {
                     com.thinkerlab.backend.api.request.OutlineInput.class)))
         .thenReturn(outline);
     var o = call(mutate(id, "/ai/outline", ""), author, 200);
+    assertThat(o.path("outline").path("candidates").asBoolean()).isTrue();
+    call(mutate(id, "/outlines/" + o.get("id").asText() + "/approve", ""), author, 409);
+    o = call(mutate(id, "/ai/outline/finalize", "{\"chapterIds\":[\"chapter-1\"]}"), author, 200);
+    assertThat(o.path("outline").path("candidates").asBoolean()).isFalse();
+    assertThat(o.path("outline").path("chapters").get(0).path("estimatedWords").asInt()).isEqualTo(2000);
     call(mutate(id, "/outlines/" + o.get("id").asText() + "/approve", ""), author, 200);
     var content =
         new com.thinkerlab.backend.api.request.ContentInput(
@@ -441,10 +499,124 @@ class BackendIntegrationTest {
                 .path("chapters")
                 .size())
         .isEqualTo(1);
-    org.mockito.Mockito.verify(gemini, org.mockito.Mockito.times(1))
+    org.mockito.Mockito.verify(gemini, org.mockito.Mockito.times(2))
         .generate(
             org.mockito.ArgumentMatchers.anyString(),
             org.mockito.ArgumentMatchers.eq(com.thinkerlab.backend.api.request.ContentInput.class));
+  }
+
+  @Test
+  void mediumSelectionPreservesTargetOrderAndCanRestorePreviouslyRemovedCandidates() throws Exception {
+    String id = call(post("/api/ebooks").contentType("application/json")
+        .content(INPUT.replace("Short", "Medium")), author, 201).get("id").asText();
+    source(id);
+    var a = new com.thinkerlab.backend.api.model.Chapter("a", "Basics", 1);
+    var b = new com.thinkerlab.backend.api.model.Chapter("b", "Methods", 2);
+    var c = new com.thinkerlab.backend.api.model.Chapter("c", "Practice", 3);
+    var all = new com.thinkerlab.backend.api.request.OutlineInput("Book", List.of("Learn"), List.of(a,b,c));
+    var chosen = new com.thinkerlab.backend.api.request.OutlineInput("Book", List.of("Learn"), List.of(c,a));
+    org.mockito.Mockito.when(gemini.generate(org.mockito.ArgumentMatchers.anyString(),
+        org.mockito.ArgumentMatchers.eq(com.thinkerlab.backend.api.request.OutlineInput.class))).thenReturn(all, chosen, all);
+    call(mutate(id, "/ai/outline", ""), author, 200);
+    call(mutate(id, "/ai/outline/finalize", "{\"chapterIds\":[]}"), author, 400);
+    call(mutate(id, "/ai/outline/finalize", "{\"chapterIds\":[\"a\",\"a\"]}"), author, 400);
+    call(mutate(id, "/ai/outline/finalize", "{\"chapterIds\":[\"unknown\"]}"), author, 400);
+    var finalOutline = call(mutate(id, "/ai/outline/finalize", "{\"chapterIds\":[\"c\",\"a\"]}"), author, 200).path("outline");
+    assertThat(finalOutline.path("chapters").get(0).path("id").asText()).isEqualTo("c");
+    assertThat(finalOutline.path("chapters").get(0).path("estimatedWords").asInt()).isEqualTo(3000);
+    assertThat(finalOutline.path("chapters").get(1).path("estimatedWords").asInt()).isEqualTo(1000);
+    var restored = call(mutate(id, "/ai/outline/finalize", "{\"chapterIds\":[\"a\",\"b\",\"c\"]}"), author, 200).path("outline");
+    assertThat(restored.path("chapters").size()).isEqualTo(3);
+    int total = 0;
+    for (var chapter : restored.path("chapters")) total += chapter.path("estimatedWords").asInt();
+    assertThat(total).isEqualTo(4000);
+  }
+
+  @Test
+  void generationUsesPerChapterBudgetsAndUniqueBlockIdsAndReportsActualWords() throws Exception {
+    String id = create().get("id").asText();
+    source(id);
+    var outline = new com.thinkerlab.backend.api.request.OutlineInput("Book", List.of("Learn"), List.of(
+        new com.thinkerlab.backend.api.model.Chapter("a", "A", 1),
+        new com.thinkerlab.backend.api.model.Chapter("b", "B", 1)));
+    var saved = call(mutate(id, "/outlines", body(outline)), author, 201);
+    call(mutate(id, "/outlines/" + saved.path("id").asText() + "/approve", ""), author, 200);
+    var first = new com.thinkerlab.backend.api.request.ContentInput(List.of(
+        new com.thinkerlab.backend.api.model.ChapterContent("a", "A", List.of(
+          new com.thinkerlab.backend.api.model.Block("same-id", Types.BlockType.paragraph,
+            "evidence ".repeat(1000), null, null, null)))));
+    var second = new com.thinkerlab.backend.api.request.ContentInput(List.of(
+        new com.thinkerlab.backend.api.model.ChapterContent("b", "B", List.of(
+          new com.thinkerlab.backend.api.model.Block("same-id", Types.BlockType.paragraph,
+            "example ".repeat(1000), null, null, null)))));
+    org.mockito.Mockito.when(gemini.generate(org.mockito.ArgumentMatchers.anyString(),
+        org.mockito.ArgumentMatchers.eq(com.thinkerlab.backend.api.request.ContentInput.class))).thenReturn(first, second);
+    var result = call(mutate(id, "/ai/content", ""), author, 200);
+    assertThat(result.path("wordCount").path("actual").asInt()).isEqualTo(2000);
+    assertThat(result.path("wordCount").path("withinRange").asBoolean()).isTrue();
+    var chapters = result.path("content").path("chapters");
+    assertThat(chapters.get(0).path("chapterId").asText()).isEqualTo("a");
+    assertThat(chapters.get(1).path("chapterId").asText()).isEqualTo("b");
+    assertThat(chapters.get(0).path("blocks").get(0).path("id").asText())
+      .isNotEqualTo(chapters.get(1).path("blocks").get(0).path("id").asText());
+    var prompts = org.mockito.ArgumentCaptor.forClass(String.class);
+    org.mockito.Mockito.verify(gemini, org.mockito.Mockito.times(2)).generate(prompts.capture(),
+        org.mockito.ArgumentMatchers.eq(com.thinkerlab.backend.api.request.ContentInput.class));
+    assertThat(prompts.getAllValues().get(0)).contains("Write ONLY chapter a", "Target 1000 words");
+    assertThat(prompts.getAllValues().get(1)).contains("Write ONLY chapter b", "Target 1000 words");
+  }
+
+  @Test
+  void workflowPersistsDraftsPerStageAndRejectsOtherOwnersAndStaleRevisions() throws Exception {
+    String id = create().path("id").asText();
+    String revision = rev(id);
+    String payload = "{\"step\":\"LEARNING_PREFERENCES\",\"draft\":\"{\\\"language\\\":\\\"Indonesian\\\"}\"}";
+    call(put("/api/ebooks/" + id + "/workflow").header("If-Match", revision)
+        .contentType("application/json").content(payload), stranger, 404);
+    call(put("/api/ebooks/" + id + "/workflow").header("If-Match", revision)
+        .contentType("application/json").content(payload), author, 200);
+    call(put("/api/ebooks/" + id + "/workflow").header("If-Match", revision)
+        .contentType("application/json").content(payload), author, 409);
+    var stored = call(get("/api/ebooks/" + id), author, 200);
+    assertThat(stored.path("workflowStep").asText()).isEqualTo("LEARNING_PREFERENCES");
+    assertThat(stored.path("workflowDrafts").asText()).contains("Indonesian");
+    call(put("/api/ebooks/" + id + "/workflow").header("If-Match", rev(id))
+        .contentType("application/json").content("{\"step\":\"INVALID\"}"), author, 400);
+  }
+
+  @Test
+  void failedGenerationResumesFromLastPersistedChapter() throws Exception {
+    String id = create().path("id").asText();
+    source(id);
+    var outline = new com.thinkerlab.backend.api.request.OutlineInput("Book", List.of("Learn"), List.of(
+        new com.thinkerlab.backend.api.model.Chapter("a", "A", 1),
+        new com.thinkerlab.backend.api.model.Chapter("b", "B", 1)));
+    var saved = call(mutate(id, "/outlines", body(outline)), author, 201);
+    call(mutate(id, "/outlines/" + saved.path("id").asText() + "/approve", ""), author, 200);
+    var first = new com.thinkerlab.backend.api.request.ContentInput(List.of(
+        new com.thinkerlab.backend.api.model.ChapterContent("a", "A", List.of(
+          new com.thinkerlab.backend.api.model.Block("id", Types.BlockType.paragraph,
+            "evidence ".repeat(1000), null, null, null)))));
+    var second = new com.thinkerlab.backend.api.request.ContentInput(List.of(
+        new com.thinkerlab.backend.api.model.ChapterContent("b", "B", List.of(
+          new com.thinkerlab.backend.api.model.Block("id", Types.BlockType.paragraph,
+            "example ".repeat(1000), null, null, null)))));
+    org.mockito.Mockito.when(gemini.generate(org.mockito.ArgumentMatchers.anyString(),
+        org.mockito.ArgumentMatchers.eq(com.thinkerlab.backend.api.request.ContentInput.class)))
+        .thenReturn(first).thenThrow(new org.springframework.web.server.ResponseStatusException(
+            org.springframework.http.HttpStatus.BAD_GATEWAY, "Temporary failure")).thenReturn(second);
+    call(mutate(id, "/ai/content", ""), author, 502);
+    var interrupted = call(get("/api/ebooks/" + id), author, 200);
+    assertThat(interrupted.path("currentVersionId").isNull()).isTrue();
+    assertThat(interrupted.path("workflowStep").asText()).isEqualTo("GENERATION");
+    var drafts = json.readTree(interrupted.path("workflowDrafts").asText());
+    assertThat(json.readTree(drafts.path("GENERATION").asText()).path("chapters").size()).isEqualTo(1);
+    var complete = call(mutate(id, "/ai/content", ""), author, 200);
+    assertThat(complete.path("content").path("chapters").size()).isEqualTo(2);
+    var prompts = org.mockito.ArgumentCaptor.forClass(String.class);
+    org.mockito.Mockito.verify(gemini, org.mockito.Mockito.times(3)).generate(prompts.capture(),
+        org.mockito.ArgumentMatchers.eq(com.thinkerlab.backend.api.request.ContentInput.class));
+    assertThat(prompts.getAllValues().get(2)).contains("Write ONLY chapter b");
   }
 
   @Test
@@ -467,7 +639,7 @@ class BackendIntegrationTest {
                 org.mockito.ArgumentMatchers.eq(
                     com.thinkerlab.backend.api.request.ContentInput.class)))
         .thenReturn(invalid);
-    call(mutate(id, "/ai/content", ""), author, 400);
+    call(mutate(id, "/ai/content", ""), author, 502);
     assertThat(call(get("/api/ebooks/" + id), author, 200).get("currentVersionId").isNull())
         .isTrue();
   }

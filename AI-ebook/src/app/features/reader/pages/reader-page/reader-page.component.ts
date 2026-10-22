@@ -64,7 +64,8 @@ import { Ebook } from '../../../../core/models/ebook.model';
               <section *ngIf="ebook?.sources?.length">
                 <h3>Referensi</h3>
                 <p *ngFor="let source of ebook?.sources">
-                  <a
+                  <span *ngIf="!source.url">{{ source.title }}</span>
+                  <a *ngIf="source.url"
                     [href]="source.url"
                     target="_blank"
                     rel="noopener noreferrer"

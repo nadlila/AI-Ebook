@@ -47,7 +47,8 @@ export class EbookService {
       description: d.description || '',
       learningGoal: d.learningGoal || d.title || 'Tujuan belajar belum diisi',
       audience: d.audience || 'Pelajar umum',
-      targetLevel: d.targetLevel || 'Beginner',
+      targetLevel: d.targetLevels?.[0] || d.targetLevel || 'Beginner',
+      targetLevels: d.targetLevels?.length ? d.targetLevels : [d.targetLevel || 'Beginner'],
       language: d.language || 'Indonesian',
       writingStyle: d.writingStyle || 'Friendly',
       contentLength: d.contentLength || 'Short',
@@ -56,8 +57,19 @@ export class EbookService {
   }
   private book(p: any): Ebook {
     const published = p.status === 'PUBLISHED';
+    const workflowDrafts: Record<string, any> = {};
+    try {
+      for (const [step, data] of Object.entries(JSON.parse(p.workflowDrafts || '{}')))
+        workflowDrafts[step] = typeof data === 'string' ? JSON.parse(data) : data;
+    } catch { /* Legacy projects may not have workflow drafts. */ }
+    const fallback = p.currentVersionId ? 'EDITOR' : p.approvedOutlineId ? 'GENERATION'
+      : p.status === 'OUTLINE_REVIEW' ? 'OUTLINE' : p.status === 'RESEARCH_READY' ? 'SOURCE_REVIEW' : 'LEARNING_PREFERENCES';
+    const step: EbookStep = published ? 'READER' : p.currentVersionId
+      ? (['QUALITY_CHECK', 'DETAIL'].includes(p.workflowStep) ? p.workflowStep : 'EDITOR')
+      : p.approvedOutlineId ? 'GENERATION' : p.workflowStep || fallback;
     return {
       ...p,
+      workflowDrafts,
       status: published
         ? 'READY_TO_READ'
         : p.currentVersionId
@@ -69,29 +81,28 @@ export class EbookService {
               : p.status === 'RESEARCH_READY'
                 ? 'RESEARCH_READY'
                 : 'DRAFT',
-      currentStep: published
-        ? 'READER'
-        : p.currentVersionId
-          ? 'EDITOR'
-          : p.approvedOutlineId
-            ? 'GENERATION'
-            : p.status === 'OUTLINE_REVIEW'
-              ? 'OUTLINE'
-              : p.status === 'RESEARCH_READY'
-                ? 'SOURCE_REVIEW'
-                : 'LEARNING_PREFERENCES',
-      creationProgress: published
-        ? 100
-        : p.currentVersionId
-          ? 80
-          : p.approvedOutlineId
-            ? 60
-            : 20,
+      currentStep: step,
+      creationProgress: this.stageProgress(step),
       readingProgress: 0,
       chapterCount: 0,
       coverImage: p.coverImage || '',
       lastReadChapterIndex: 0,
     };
+  }
+  stageProgress(step: EbookStep): number {
+    const values: Partial<Record<EbookStep, number>> = {
+      LEARNING_PREFERENCES: 10, RESEARCH: 20, SOURCE_REVIEW: 30, LEARNING_PLAN: 40,
+      OUTLINE: 50, OUTLINE_APPROVAL: 60, GENERATION: 65, EDITOR: 80,
+      QUALITY_CHECK: 90, DETAIL: 95, READER: 100,
+    };
+    return values[step] ?? 10;
+  }
+  getWorkflowDraft(id: string, step: EbookStep): Observable<any> {
+    return this.project(id).pipe(map(p => this.book(p).workflowDrafts?.[step]));
+  }
+  saveWorkflow(id: string, step: EbookStep, draft?: object): Observable<Ebook> {
+    return this.mutate(id, '/workflow', { step, draft: draft === undefined ? null : JSON.stringify(draft) }, 'PUT')
+      .pipe(map(p => this.book(p)));
   }
   createEbookDraft(data: Partial<Ebook>): Observable<Ebook> {
     return this.http
@@ -107,7 +118,8 @@ export class EbookService {
           { headers: { 'If-Match': String(p.revision) } },
         ),
       ),
-      map((p) => this.book(p)),
+      switchMap(p => updates.currentStep
+        ? this.saveWorkflow(id, updates.currentStep) : of(this.book(p))),
     );
   }
   getEbookById(id: string): Observable<Ebook> {
@@ -123,7 +135,16 @@ export class EbookService {
           map(({ outlines, content, sources }) => ({
             ...this.book(p),
             sources,
+            ...(p.currentVersionId || p.approvedOutlineId ? {} : outlines[0] && (!p.workflowStep || ['OUTLINE', 'OUTLINE_APPROVAL'].includes(p.workflowStep)) ? {
+              currentStep: (p.workflowStep || (outlines[0].outline.candidates ? 'OUTLINE' : 'OUTLINE_APPROVAL')) as EbookStep,
+              creationProgress: this.stageProgress(p.workflowStep || (outlines[0].outline.candidates ? 'OUTLINE' : 'OUTLINE_APPROVAL')),
+            } : {}),
+            ...(p.approvedOutlineId && !p.currentVersionId ? {
+              creationProgress: 65 + Math.floor(15 * Math.min(1,
+                (this.book(p).workflowDrafts?.['GENERATION']?.outlineId === p.approvedOutlineId ? this.book(p).workflowDrafts?.['GENERATION']?.chapters?.length || 0 : 0) / Math.max(1, outlines[0]?.outline.chapters.length || 1))),
+            } : {}),
             outline: outlines[0]?.outline,
+            candidateChapters: outlines.find(o => o.outline.candidates)?.outline.chapters,
             learningPlan: outlines[0]
               ? {
                   goal: (p.learningGoal || '').split('\nTarget hasil belajar:\n')[0],
@@ -186,16 +207,18 @@ export class EbookService {
       EDITOR: 'editor',
       QUALITY_CHECK: 'quality-check',
       READER: 'reader',
+      DETAIL: 'detail',
     };
     return `/ebooks/${ebook.id}/${paths[ebook.currentStep] || 'detail'}`;
   }
   createLearningPlan(id: string, plan: LearningPlan): Observable<Ebook> {
-    return this.updateEbook(id, {
+    return this.saveWorkflow(id, 'LEARNING_PLAN', plan).pipe(switchMap(() => this.updateEbook(id, {
       learningGoal:
         plan.goal + '\nTarget hasil belajar:\n' + plan.outcomes.join('\n'),
-    }).pipe(
+    })),
       switchMap(() => this.regenerateOutline(id)),
       switchMap(book => this.mutate(id, '/outlines', {
+        ...book.outline!,
         title: book.outline!.title,
         chapters: book.outline!.chapters,
         learningOutcomes: plan.outcomes,
@@ -212,6 +235,11 @@ export class EbookService {
   }
   regenerateOutline(id: string): Observable<Ebook> {
     return this.mutate(id, '/ai/outline').pipe(
+      switchMap(() => this.getEbookById(id)),
+    );
+  }
+  finalizeOutline(id: string, chapterIds: string[]): Observable<Ebook> {
+    return this.mutate(id, '/ai/outline/finalize', { chapterIds }).pipe(
       switchMap(() => this.getEbookById(id)),
     );
   }
@@ -235,18 +263,21 @@ export class EbookService {
       map((e) => {
         const chapters = e.outline?.chapters || [];
         const done = !!e.editorContent?.length;
+        const stored = e.workflowDrafts?.['GENERATION'];
+        const saved = stored?.outlineId === e.approvedOutlineId ? stored?.chapters || [] : [];
+        const completed = done ? chapters.length : Math.min(saved.length, chapters.length);
         return {
           totalChapters: chapters.length,
-          completedChapters: done ? chapters.length : 0,
+          completedChapters: completed,
           currentChapter: done
             ? 'Selesai'
             : 'Gemini sedang menyusun seluruh bab',
-          progress: done ? 100 : 0,
+          progress: chapters.length ? Math.floor(completed / chapters.length * 100) : 0,
           failedChapters: 0,
           chapters: chapters.map((c) => ({
             chapterId: c.id,
             title: c.title,
-            status: done ? 'completed' : 'pending',
+            status: done || saved.some((s: any) => s.chapterId === c.id) ? 'completed' : 'pending',
           })),
         };
       }),
@@ -268,11 +299,14 @@ export class EbookService {
     chapters: EditorChapterContent[],
   ): Observable<Ebook> {
     return this.mutate(id, '/content', { chapters }, 'PUT').pipe(
+      switchMap(() => this.saveWorkflow(id, 'QUALITY_CHECK')),
       switchMap(() => this.getEbookById(id)),
     );
   }
   runQualityCheck(id: string): Observable<any> {
-    return this.mutate(id, '/quality-check');
+    return this.mutate(id, '/quality-check').pipe(
+      switchMap(result => this.saveWorkflow(id, result.passed ? 'DETAIL' : 'QUALITY_CHECK').pipe(map(() => result)))
+    );
   }
   finalizeEbook(id: string): Observable<Ebook> {
     return this.project(id).pipe(

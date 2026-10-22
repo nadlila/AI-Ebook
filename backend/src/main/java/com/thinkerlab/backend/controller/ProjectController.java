@@ -79,6 +79,12 @@ public class ProjectController {
     return service.uploadCover(id, revision(rev), file);
   }
 
+  @PutMapping("/{id}/workflow")
+  public Project workflow(@PathVariable UUID id, @RequestHeader("If-Match") String rev,
+      @Valid @RequestBody com.thinkerlab.backend.api.request.WorkflowInput input) {
+    return service.saveWorkflow(id, revision(rev), input);
+  }
+
   @GetMapping("/{id}/sources")
   public List<Source> sources(@PathVariable UUID id) {
     return service.sources(id);
@@ -91,6 +97,16 @@ public class ProjectController {
       @RequestHeader("If-Match") String rev,
       @Valid @RequestBody SourceInput input) {
     return service.addSource(id, revision(rev), input);
+  }
+
+  @PostMapping(value = "/{id}/sources/pdf", consumes = "multipart/form-data")
+  @ResponseStatus(HttpStatus.CREATED)
+  public Source uploadSource(@PathVariable UUID id, @RequestHeader("If-Match") String rev,
+      @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+      @RequestParam @NotBlank @Size(max = 200) String title,
+      @RequestParam @NotBlank @Size(max = 200) String publisher,
+      @RequestParam(defaultValue = "") @Size(max = 2048) String url) {
+    return service.uploadSource(id, revision(rev), file, title, publisher, url);
   }
 
   @PatchMapping("/{id}/sources/{sourceId}")

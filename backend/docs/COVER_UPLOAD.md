@@ -9,3 +9,13 @@ Cover disimpan sebagai data URL pada kolom `cover_image` agar gambar hanya dikir
 Jalankan `src/main/resources/db/V003__uploaded_covers.sql` setelah V001 dan V002 untuk database baru/lain. Migrasi memperluas kolom cover proyek dan publikasi menjadi text, mempertahankan URL lama. Migrasi ini sudah diterapkan pada database workspace saat implementasi. Restart backend untuk memuat endpoint dan batas multipart yang baru.
 
 Pengujian integrasi mencakup upload gambar nyata, file palsu, isolasi pemilik, konflik revision, dan mempertahankan cover saat metadata diperbarui. Pengujian memakai H2; migrasi skema diverifikasi pada PostgreSQL workspace.
+
+## Cover dari Unsplash
+
+Isi UNSPLASH_ACCESS_KEY pada backend/.env dengan Access Key aplikasi Unsplash dari https://unsplash.com/oauth/applications, bukan Secret Key. Restart backend. Key tidak dikirim ke browser. PEXELS_API_KEY tidak dipakai lagi. Tidak perlu migrasi SQL.
+
+Upload / Ganti cover > Cari gambar sesuai topik. Pencarian memakai judul sebagai kata kunci awal yang bisa diedit. Pilih foto, atur zoom/posisi, judul dan nama penulis, lalu Gunakan cover ini. Hasil disimpan lewat upload cover.
+
+GET /api/ebooks/{id}/cover/photos?query=...&page=1 mengembalikan ID string Unsplash, URL preview dan image CDN asli, serta tautan atribusi fotografer/foto. Preview dan gambar komposer di-hotlink langsung ke images.unsplash.com, mempertahankan parameter URL. POST /api/ebooks/{id}/cover/photos/{photoId}/download melacak penggunaan saat tombol Gunakan cover ini dipilih, memakai links.download_location dari API resmi. Kedua endpoint memerlukan login dan kepemilikan proyek. Browser menggunakan CORS anonymous untuk canvas. Kredit fotografer dan Unsplash ditampilkan dalam alur pemilihan dan pada gambar cover.
+
+Pengujian memakai mock dan tidak memakai kuota Gemini/Unsplash. Uji pencarian langsung setelah Access Key diisi. Ketentuan: https://unsplash.com/documentation#guidelines--crediting

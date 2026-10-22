@@ -31,6 +31,13 @@ public class AiController {
     return ai.outline(id, ProjectController.revision(revision));
   }
 
+  @PostMapping("/outline/finalize")
+  public Map<String, Object> finalizeOutline(@PathVariable UUID id,
+      @RequestHeader("If-Match") String revision,
+      @jakarta.validation.Valid @RequestBody com.thinkerlab.backend.api.request.ChapterSelection selection) {
+    return ai.finalizeOutline(id, ProjectController.revision(revision), selection);
+  }
+
   @PostMapping("/content")
   public Map<String, Object> content(
       @PathVariable UUID id, @RequestHeader("If-Match") String revision) {

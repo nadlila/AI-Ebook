@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Ebook } from '../../../../../core/models/ebook.model';
@@ -14,6 +14,8 @@ import { EbookService } from '../../../../../core/services/ebook.service';
       <div class="card">
         <h2>Create New Ebook</h2>
 
+        <p role="status">{{ draftMessage }}</p>
+        <button type="button" (click)="saveDraft()" [disabled]="draftSaving || isSubmitting">Simpan draft preferensi</button>
         <form [formGroup]="form" (ngSubmit)="startResearch()">
           <label>Learning Goal</label>
           <input type="text" formControlName="learningGoal" placeholder="Type your learning goal" />
@@ -33,18 +35,20 @@ import { EbookService } from '../../../../../core/services/ebook.service';
             <option value="Academic">Academic</option>
           </select>
 
-          <label>Target Level</label>
+          <label>Cakupan tingkat pembelajaran</label>
           <div class="radio-group">
-            <label><input type="radio" value="Beginner" formControlName="targetLevel" /> Beginner</label>
-            <label><input type="radio" value="Intermediate" formControlName="targetLevel" /> Intermediate</label>
-            <label><input type="radio" value="Advanced" formControlName="targetLevel" /> Advanced</label>
+            <label><input type="checkbox" [checked]="hasLevel('Beginner')" (change)="toggleLevel('Beginner')" /> Beginner</label>
+            <label><input type="checkbox" [checked]="hasLevel('Intermediate')" (change)="toggleLevel('Intermediate')" /> Intermediate</label>
+            <label><input type="checkbox" [checked]="hasLevel('Advanced')" (change)="toggleLevel('Advanced')" /> Advanced</label>
+            <p>Pilih satu atau beberapa level. Bab akan disusun bertahap dari dasar hingga lanjutan, dengan satu level per bab. Target jumlah kata tetap mengikuti content length.</p>
+            <p *ngIf="form.controls.targetLevels.touched && form.controls.targetLevels.invalid" role="alert">Pilih minimal satu level.</p>
           </div>
 
           <label>Content Length</label>
           <div class="radio-group compact">
-            <label><input type="radio" value="Short" formControlName="contentLength" /> Short</label>
-            <label><input type="radio" value="Medium" formControlName="contentLength" /> Medium</label>
-            <label><input type="radio" value="Long" formControlName="contentLength" /> Long</label>
+            <label><input type="radio" value="Short" formControlName="contentLength" /> Short - sekitar 2.000 kata (1.800-2.200)</label>
+            <label><input type="radio" value="Medium" formControlName="contentLength" /> Medium - sekitar 4.000 kata (3.600-4.400)</label>
+            <label><input type="radio" value="Long" formControlName="contentLength" /> Long - maksimal 6.000 kata (5.400-6.000)</label>
           </div>
 
           <div class="actions">
@@ -146,7 +150,7 @@ import { EbookService } from '../../../../../core/services/ebook.service';
     `
   ]
 })
-export class LearningPreferencesPageComponent {
+export class LearningPreferencesPageComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly ebookService = inject(EbookService);
   private readonly router = inject(Router);
@@ -154,15 +158,45 @@ export class LearningPreferencesPageComponent {
 
   form = this.fb.nonNullable.group({
     learningGoal: ['', [Validators.required]],
-    targetLevel: ['', [Validators.required]],
+    targetLevels: this.fb.nonNullable.control<Array<'Beginner' | 'Intermediate' | 'Advanced'>>([], Validators.required),
     language: ['', [Validators.required]],
     writingStyle: ['', [Validators.required]],
     contentLength: ['', [Validators.required]]
   });
 
+  hasLevel(level: 'Beginner' | 'Intermediate' | 'Advanced'): boolean { return this.form.controls.targetLevels.value.includes(level); }
+  toggleLevel(level: 'Beginner' | 'Intermediate' | 'Advanced'): void {
+    if (this.isSubmitting || this.draftSaving) return;
+    const control = this.form.controls.targetLevels;
+    const next = this.hasLevel(level) ? control.value.filter(v => v !== level) : [...control.value, level];
+    control.setValue((['Beginner', 'Intermediate', 'Advanced'] as const).filter(v => next.includes(v)));
+    control.markAsTouched();
+  }
+  draftMessage = '';
+  draftSaving = false;
+  ngOnInit(): void {
+    const id = this.route.snapshot.queryParamMap.get('id');
+    if (!id) return;
+    this.ebookService.getEbookById(id).subscribe({ next: book => {
+      const draft = book.workflowDrafts?.['LEARNING_PREFERENCES'];
+      this.form.patchValue(draft || { learningGoal: book.learningGoal, targetLevels: book.targetLevels?.length ? book.targetLevels : [book.targetLevel || 'Beginner'],
+        language: book.language, writingStyle: book.writingStyle, contentLength: book.contentLength });
+      if (draft && !Array.isArray(draft.targetLevels)) this.form.controls.targetLevels.setValue([draft.targetLevel || book.targetLevel || 'Beginner']);
+    }, error: () => { this.draftMessage = 'Gagal memuat preferensi tersimpan.'; } });
+  }
+  saveDraft(): void {
+    const id = this.route.snapshot.queryParamMap.get('id');
+    if (!id || this.draftSaving || this.isSubmitting) return;
+    this.draftSaving = true;
+    this.ebookService.saveWorkflow(id, 'LEARNING_PREFERENCES', this.form.getRawValue()).subscribe({
+      next: () => { this.draftSaving = false; this.draftMessage = 'Draft preferensi tersimpan.'; },
+      error: () => { this.draftSaving = false; this.draftMessage = 'Draft gagal disimpan. Coba lagi.'; }
+    });
+  }
   isSubmitting = false;
 
   startResearch(): void {
+    if (this.draftSaving || this.isSubmitting) return;
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -174,7 +208,8 @@ export class LearningPreferencesPageComponent {
     const payload = this.form.getRawValue();
     const updates: Partial<Ebook> = {
       learningGoal: payload.learningGoal,
-      targetLevel: payload.targetLevel as 'Beginner' | 'Intermediate' | 'Advanced',
+      targetLevel: payload.targetLevels[0],
+      targetLevels: payload.targetLevels,
       language: payload.language,
       writingStyle: payload.writingStyle,
       contentLength: payload.contentLength as 'Short' | 'Medium' | 'Long',

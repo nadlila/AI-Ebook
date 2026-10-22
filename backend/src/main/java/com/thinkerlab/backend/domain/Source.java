@@ -31,6 +31,11 @@ public class Source {
   @Column(nullable = false)
   public java.time.Instant accessDate;
 
+  @Column(length = 255)
+  public String fileName;
+
+  public Integer pageCount;
+
   @Version
   @Column(nullable = false)
   public Long revision;
