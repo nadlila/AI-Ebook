@@ -13,7 +13,6 @@ import { EbookService } from '../../../../core/services/ebook.service';
     <div class="editor-container">
       <header class="editor-header">
         <button class="header-btn" (click)="goBack()">Project</button>
-        <button class="header-btn" (click)="saveDraft()" [disabled]="saving || !chapters.length">Simpan draft</button>
         <h1 class="book-title">{{ bookTitle }}</h1>
         <button class="header-btn save-btn" (click)="saveAndContinue()" [disabled]="saving || !chapters.length">
           {{ saving ? 'Menyimpan...' : 'Simpan dan lanjutkan' }}

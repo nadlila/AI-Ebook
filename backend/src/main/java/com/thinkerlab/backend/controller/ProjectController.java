@@ -65,6 +65,12 @@ public class ProjectController {
     return service.owned(id);
   }
 
+  @DeleteMapping("/{id}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void delete(@PathVariable UUID id, @RequestHeader("If-Match") String rev) {
+    service.delete(id, revision(rev));
+  }
+
   @PutMapping("/{id}")
   public Project update(
       @PathVariable UUID id,

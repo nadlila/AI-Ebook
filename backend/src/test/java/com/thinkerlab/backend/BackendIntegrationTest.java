@@ -30,6 +30,37 @@ class BackendIntegrationTest {
   UUID author = UUID.randomUUID(), reader = UUID.randomUUID(), stranger = UUID.randomUUID();
 
   @Test
+  void deleteDraftChecksOwnershipAndRevision() throws Exception {
+    String id = create().get("id").asText();
+    String oldRevision = rev(id);
+    source(id);
+    mvc.perform(delete("/api/ebooks/" + id).header("If-Match", rev(id)).with(as(stranger)))
+        .andExpect(status().isNotFound());
+    mvc.perform(delete("/api/ebooks/" + id).header("If-Match", oldRevision).with(as(author)))
+        .andExpect(status().isConflict());
+    mvc.perform(delete("/api/ebooks/" + id).header("If-Match", rev(id)).with(as(author)))
+        .andExpect(status().isNoContent());
+    call(get("/api/ebooks/" + id), author, 404);
+  }
+
+  @Test
+  void deletePublishedEbookRemovesContentAndReaderData() throws Exception {
+    String id = create().get("id").asText(), s = source(id);
+    outline(id);
+    String version = content(id, s, "Konten untuk dihapus");
+    String publication = publish(id, version);
+    call(put("/api/library/" + publication + "/progress").contentType("application/json")
+        .content(body(Map.of("contentVersionId", version, "chapterIndex", 0, "completion", 70))), author, 200);
+    call(post("/api/library/" + publication + "/issues").contentType("application/json")
+        .content(body(Map.of("message", "Periksa konten"))), author, 200);
+    mvc.perform(delete("/api/ebooks/" + id).header("If-Match", rev(id)).with(as(author)))
+        .andExpect(status().isNoContent());
+    call(get("/api/ebooks/" + id), author, 404);
+    call(get("/api/library/" + publication), author, 404);
+    call(get("/api/library/" + publication + "/progress"), author, 404);
+  }
+
+  @Test
   void coverUploadValidatesImageAndOwnershipAndPersistsWithoutChangingWorkflow() throws Exception {
     String id = create().get("id").asText();
     var image = new java.awt.image.BufferedImage(20, 30, java.awt.image.BufferedImage.TYPE_INT_RGB);

@@ -1,6 +1,6 @@
 import { StockCoverComponent } from './stock-cover.component';
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, HostListener, inject, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Ebook } from '../../../../../core/models/ebook.model';
 import { EbookService } from '../../../../../core/services/ebook.service';
@@ -15,8 +15,21 @@ import { EbookService } from '../../../../../core/services/ebook.service';
         <!-- Breadcrumb -->
         <header class="detail-header">
           <button class="btn-back" (click)="goBack()">
-            <span class="icon">←</span> Back to dashboard
+            <span class="icon">←</span> Back to Home
           </button>
+          <div class="ebook-menu" (click)="$event.stopPropagation()"
+            (keydown.escape)="moreMenuOpen = false; moreButton.focus()">
+            <button #moreButton type="button" class="btn-more" aria-label="Opsi ebook"
+              aria-controls="ebook-actions" [attr.aria-expanded]="moreMenuOpen"
+              (click)="moreMenuOpen = !moreMenuOpen"
+              [disabled]="deleting || saving || uploadingCover">
+              <span aria-hidden="true">&#8942;</span>
+            </button>
+            <div id="ebook-actions" class="ebook-dropdown" *ngIf="moreMenuOpen">
+              <button type="button" class="delete-option" (click)="deleteEbook(); moreButton.focus()"
+                [disabled]="deleting || saving || uploadingCover">Hapus</button>
+            </div>
+          </div>
         </header>
 
         <div class="detail-layout">
@@ -26,7 +39,7 @@ import { EbookService } from '../../../../../core/services/ebook.service';
               <img
                 [src]="ebook.coverImage"
                 *ngIf="ebook.coverImage"
-                class="cover-img-bg"
+                class="cover-img-bg" [alt]="ebook.title"
               />
               <div class="cover-overlay" *ngIf="!ebook.coverImage">
                 <div class="badge">THINKERLAB EBOOK</div>
@@ -49,7 +62,7 @@ import { EbookService } from '../../../../../core/services/ebook.service';
             </p>
 
             <p *ngIf="actionError" role="alert">{{ actionError }}</p>
-            <div class="action-buttons">
+            <div class="action-buttons" [attr.inert]="deleting ? '' : null">
               <button class="btn-read" (click)="startReading()" [disabled]="!ebook.editorContent?.length">
                 Read Ebook
               </button>
@@ -119,35 +132,19 @@ import { EbookService } from '../../../../../core/services/ebook.service';
 
             <app-stock-cover *ngIf="stockCoverOpen" [ebookId]="ebook.id" [ebookTitle]="ebook.title" [saving]="uploadingCover" [saveError]="actionError"
               (closed)="stockCoverOpen = false" (coverChosen)="persistCover($event)"></app-stock-cover>
-            <div class="stats-row">
-              <div class="stat-box">
-                <span class="stat-label">Chapters</span>
-                <span class="stat-value"
-                  >{{ ebook.chapterCount }} chapters</span
-                >
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">Reading time</span>
-                <span class="stat-value"
-                  >~ {{ estimatedReadingTime }}</span
-                >
-              </div>
-              <div class="stat-box">
-                <span class="stat-label">Audio</span>
-                <span class="stat-value">Belum tersedia</span>
-              </div>
-            </div>
           </main>
         </div>
 
+        <div class="book-details">
         <!-- Chapters Section -->
         <section class="chapters-section">
           <div class="section-card">
             <div class="section-header">
               <h3>Chapters</h3>
-              <p>Review the structure or open a chapter to edit its content.</p>
+              <p>Jelajahi isi dan topik yang dibahas dalam ebook ini.</p>
             </div>
 
+            <p *ngIf="!chapterList.length">Chapter belum tersedia.</p>
             <div class="chapter-list">
               <div
                 class="chapter-row"
@@ -169,6 +166,27 @@ import { EbookService } from '../../../../../core/services/ebook.service';
             </div>
           </div>
         </section>
+        <aside class="ebook-facts" aria-label="Informasi ebook">
+            <div class="stats-row">
+              <div class="stat-box">
+                <span class="stat-label">Total chapters</span>
+                <span class="stat-value"
+                  >{{ chapterList.length || ebook.chapterCount }} chapters</span
+                >
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Reading time</span>
+                <span class="stat-value"
+                  >~ {{ estimatedReadingTime }}</span
+                >
+              </div>
+              <div class="stat-box">
+                <span class="stat-label">Language</span>
+                <span class="stat-value">{{ ebook.language || 'Belum ditentukan' }}</span>
+              </div>
+            </div>
+        </aside>
+        </div>
       </div>
     </section>
 
@@ -176,359 +194,56 @@ import { EbookService } from '../../../../../core/services/ebook.service';
       <div class="loading-state">{{ loadError || 'Memuat detail ebook...' }}</div>
     </ng-template>
   `,
-  styles: [
-    `
-      .page-shell {
-        min-height: 100vh;
-        background-color: #f9f8f6;
-        padding: 40px 20px;
-        color: #1a1a1a;
-      }
-
-      .main-container {
-        max-width: 1200px;
-        margin: 0 auto;
-      }
-
-      .detail-header {
-        margin-bottom: 40px;
-      }
-
-      .btn-back {
-        background: transparent;
-        border: none;
-        color: #666;
-        font-weight: 500;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 0.9rem;
-      }
-
-      .detail-layout {
-        display: flex;
-        gap: 60px;
-        margin-bottom: 60px;
-        align-items: flex-start;
-      }
-
-      .cover-sidebar {
-        flex: 0 0 320px;
-      }
-
-      .book-cover-card {
-        position: relative;
-        width: 100%;
-        aspect-ratio: 3/4.2;
-        border-radius: 20px;
-        overflow: hidden;
-        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.12);
-        background: linear-gradient(135deg, #1a2b2c 0%, #0d1516 100%);
-      }
-
-      .cover-img-bg {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        opacity: 0.6;
-      }
-
-      .cover-overlay {
-        position: absolute;
-        inset: 0;
-        padding: 32px;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-end;
-        color: white;
-        background: linear-gradient(transparent 40%, rgba(0, 0, 0, 0.8));
-      }
-
-      .badge {
-        font-size: 0.7rem;
-        font-weight: 900;
-        letter-spacing: 1.5px;
-        margin-bottom: 16px;
-        color: #d4ff00;
-      }
-
-      .cover-title {
-        font-size: 1.8rem;
-        font-weight: 700;
-        margin: 0;
-        line-height: 1.2;
-        letter-spacing: -0.5px;
-      }
-
-      .info-content {
-        flex: 1;
-      }
-
-      .status-badge {
-        font-size: 1.25rem;
-        color: #444;
-        margin-bottom: 16px;
-        font-weight: 700;
-      }
-
-      .book-title {
-        font-size: 3.5rem;
-        font-weight: 800;
-        margin: 0 0 20px;
-        letter-spacing: -2px;
-        line-height: 1.1;
-      }
-
-      .book-subtitle {
-        font-size: 1.2rem;
-        color: #666;
-        margin-bottom: 40px;
-        line-height: 1.5;
-        max-width: 650px;
-      }
-
-      .action-buttons {
-        display: flex;
-        gap: 12px;
-        margin-bottom: 60px;
-        align-items: center;
-      }
-
-      .btn-read {
-        background: #1a1a1a;
-        color: white;
-        border: none;
-        padding: 14px 32px;
-        border-radius: 12px;
-        font-weight: 700;
-        cursor: pointer;
-        font-size: 1rem;
-      }
-
-      .btn-outline {
-        background: white;
-        color: #1a1a1a;
-        border: 1px solid #e0ddd9;
-        padding: 14px 32px;
-        border-radius: 12px;
-        font-weight: 700;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-size: 1rem;
-      }
-      .btn-publish {
-        border: 0;
-        border-radius: 10px;
-        padding: 0 18px;
-        height: 40px;
-        background: #2f8f5b;
-        color: #fff;
-        font-weight: 700;
-        cursor: pointer;
-      }
-      .cover-modal {
-        position: fixed;
-        inset: 0;
-        z-index: 20;
-        display: grid;
-        place-items: center;
-        background: rgba(0, 0, 0, 0.35);
-      }
-      .cover-dialog {
-        width: min(90vw, 360px);
-        padding: 24px;
-        border-radius: 16px;
-        background: #fff;
-        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.2);
-      }
-      .cover-dialog h3 {
-        margin: 0 0 6px;
-      }
-      .cover-dialog p {
-        color: #666;
-        font-size: 13px;
-        margin: 0 0 18px;
-      }
-      .cover-dialog button {
-        width: 100%;
-        height: 42px;
-        margin-top: 9px;
-        border: 1px solid #ddd;
-        border-radius: 9px;
-        background: #fff;
-        font-weight: 700;
-        cursor: pointer;
-      }
-      .cover-dialog button:first-of-type {
-        background: #1d1d1d;
-        color: #fff;
-      }
-      .cover-dialog .cancel {
-        border: 0;
-        color: #777;
-      }
-
-      .btn-more {
-        background: transparent;
-        border: 1px solid #e0ddd9;
-        color: #1a1a1a;
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
-        cursor: pointer;
-        font-size: 1.2rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .stats-row {
-        display: flex;
-        gap: 24px;
-      }
-
-      .stat-box {
-        background: white;
-        border: 1px solid #e0ddd9;
-        padding: 24px;
-        border-radius: 16px;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-
-      .stat-label {
-        font-size: 0.8rem;
-        color: #999;
-        font-weight: 600;
-      }
-
-      .stat-value {
-        font-weight: 700;
-        font-size: 1.1rem;
-      }
-
-      .chapters-section {
-        margin-top: 20px;
-      }
-
-      .section-card {
-        background: white;
-        border: 1px solid #e0ddd9;
-        border-radius: 24px;
-        padding: 40px;
-      }
-
-      .section-header {
-        margin-bottom: 40px;
-      }
-
-      .section-header h3 {
-        font-size: 1.5rem;
-        font-weight: 800;
-        margin: 0 0 10px;
-      }
-
-      .section-header p {
-        font-size: 1rem;
-        color: #777;
-        margin: 0;
-      }
-
-      .chapter-row {
-        display: flex;
-        align-items: center;
-        padding: 32px 0;
-        border-top: 1px solid #f0f0f0;
-        gap: 30px;
-      }
-
-      .chap-index {
-        width: 48px;
-        height: 48px;
-        background: #f5f5f5;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.9rem;
-        font-weight: 800;
-        color: #bbb;
-      }
-
-      .chap-info {
-        flex: 1;
-      }
-
-      .chap-info h4 {
-        margin: 0 0 6px;
-        font-size: 1.2rem;
-        font-weight: 700;
-      }
-
-      .chap-info p {
-        margin: 0;
-        font-size: 0.95rem;
-        color: #888;
-        line-height: 1.6;
-        max-width: 900px;
-      }
-
-      .btn-open-link {
-        background: transparent;
-        border: none;
-        color: #1a1a1a;
-        font-size: 1rem;
-        font-weight: 700;
-        cursor: pointer;
-        padding: 10px;
-      }
-
-      .loading-state {
-        padding: 100px;
-        text-align: center;
-        font-weight: 500;
-      }
-
-      @media (max-width: 1024px) {
-        .detail-layout {
-          flex-direction: column;
-          gap: 40px;
-        }
-        .cover-sidebar {
-          margin: 0 auto;
-          width: 300px;
-        }
-        .stats-row {
-          flex-direction: column;
-        }
-        .book-title {
-          font-size: 2.5rem;
-        }
-      }
-    `,
-  ],
+  styles: [`
+.page-shell{box-sizing:border-box;min-height:calc(100dvh);background:#f9f8f6;padding:16px 24px 24px;color:#1a1a1a}
+.main-container{max-width:880px;margin:auto}
+.detail-header,.action-buttons,.chapter-row{display:flex;align-items:center;gap:12px}
+.detail-header{justify-content:space-between;margin-bottom:16px}
+button{font:inherit;cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}
+.btn-back,.btn-open-link{border:0;background:transparent;color:#666;padding:8px 0}
+.ebook-menu{position:relative}.btn-more{width:36px;height:36px;font-size:23px;border:1px solid #e0ddd9;border-radius:12px;background:white}
+.ebook-dropdown{position:absolute;right:0;top:44px;z-index:10;min-width:150px;padding:6px;border:1px solid #e0ddd9;border-radius:12px;background:white;box-shadow:0 8px 24px #0002}
+.delete-option{width:100%;padding:12px;border:0;border-radius:8px;background:white;color:#b42318;text-align:left}.delete-option:hover,.delete-option:focus-visible{background:#fff1f0}
+.detail-layout{display:grid;grid-template-columns:150px minmax(0,1fr);gap:36px;max-width:680px;margin:auto;padding:0 24px}
+.book-cover-card{position:relative;aspect-ratio:3/4.2;border-radius:10px;overflow:hidden;background:linear-gradient(135deg,#1a2b2c,#0d1516);box-shadow:0 12px 24px #0002}
+.cover-img-bg{width:100%;height:100%;object-fit:cover}.cover-overlay{position:absolute;inset:0;padding:24px;display:flex;flex-direction:column;justify-content:flex-end;color:white}.badge{font-size:10px;letter-spacing:1.5px;color:#d4ff00}.cover-title{font-size:26px;overflow-wrap:anywhere}
+.info-content{display:flex;flex-direction:column;min-width:0;padding-top:6px}.status-badge{font-weight:700;color:#555;font-size:13px;margin-bottom:8px}.book-title{font-size:clamp(24px,2.5vw,32px);line-height:1.15;letter-spacing:-.7px;margin:0 0 12px;overflow-wrap:anywhere}.book-subtitle{color:#666;font-size:13px;line-height:1.6;margin:0 0 16px;white-space:pre-line}
+.action-buttons{flex-wrap:wrap;margin-top:auto;padding-top:12px}.btn-read,.btn-outline,.btn-publish{border:1px solid #e0ddd9;border-radius:10px;padding:9px 16px;font-size:13px;font-weight:600;background:white}.btn-read{background:#1a1a1a;color:white;border-color:#1a1a1a}.btn-publish{background:#2f8f5b;color:white}
+.book-details{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:36px;margin-top:24px;padding:20px 24px;border-top:1px solid #e0ddd9;background:white;border-radius:0 0 20px 20px}h3{margin:0 0 8px;font-size:15px}.section-header p{font-size:13px;color:#777;line-height:1.5;margin:0 0 10px}.chapter-list{max-height:clamp(88px,calc(100dvh - 450px),280px);overflow-y:auto;scrollbar-width:thin;padding-right:8px}.chapter-row{padding:10px 0;border-top:1px solid #eeece8}.chap-index{color:#999;font-size:13px;width:28px;flex-shrink:0}.chap-info{flex:1;min-width:0}.chap-info h4{margin:0;font-size:13px;line-height:1.5;overflow-wrap:anywhere}.btn-open-link{font-size:12px}
+.stats-row{display:grid;gap:16px;margin-top:16px}.stat-box{display:grid;gap:5px}.stat-label{color:#777;font-size:12px}.stat-value{font-size:14px;font-weight:600}
+.cover-modal{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:#0006}.cover-dialog{width:min(80vw,360px);padding:24px;border-radius:16px;background:white}.cover-dialog p{color:#666;font-size:13px}.cover-dialog button{width:100%;padding:12px;margin-top:8px;border:1px solid #ddd;border-radius:9px;background:white}.loading-state{padding:80px 24px;text-align:center}
+@media(max-width:760px){.detail-layout{grid-template-columns:150px minmax(0,1fr);gap:24px;padding:0}.book-details{grid-template-columns:minmax(0,1fr) 180px;gap:28px;padding:24px}.info-content{padding-top:0}}
+@media(max-width:540px){.page-shell{padding:20px 16px 40px}.detail-header{margin-bottom:24px}.detail-layout,.book-details{grid-template-columns:1fr;gap:28px}.cover-sidebar{width:min(48vw,180px);margin:auto}.chapter-list{max-height:none;overflow:visible}.book-details{padding:24px 20px;margin-top:28px}.ebook-facts{border-top:1px solid #eeece8;padding-top:24px}.stats-row{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}}
+`],
 })
 export class EbookDetailPageComponent implements OnInit {
+  moreMenuOpen = false;
+
+  @HostListener('document:click')
+  closeMoreMenu(): void {
+    this.moreMenuOpen = false;
+  }
+
   coverMenu = false;
   uploadingCover = false;
-  deleteError = '';
+  deleting = false;
   actionError = '';
   saving = false;
   loadError = '';
 
   deleteEbook(): void {
-    if (!this.ebook) return;
-    try {
-      this.ebookService.deleteEbook(this.ebook.id);
-      this.router.navigate(['/dashboard']);
-    } catch {
-      this.deleteError = 'Unable to delete this ebook. Please try again.';
-    }
+    this.moreMenuOpen = false;
+    if (!this.ebook || this.deleting || this.saving || this.uploadingCover) return;
+    if (!window.confirm(`Hapus ebook "${this.ebook.title}"? Semua isi dan progres baca akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.`)) return;
+    this.deleting = true;
+    this.actionError = '';
+    this.ebookService.deleteEbook(this.ebook.id).subscribe({
+      next: () => { void this.router.navigate(['/dashboard']); },
+      error: error => {
+        this.deleting = false;
+        this.actionError = error.error?.detail || 'Ebook gagal dihapus. Silakan coba lagi.';
+      }
+    });
   }
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -538,6 +253,7 @@ export class EbookDetailPageComponent implements OnInit {
   chapterList: Array<{ title: string }> = [];
 
   get estimatedReadingTime(): string {
+    if (this.ebook?.readingTime) return this.ebook.readingTime;
     const targetWords = this.ebook?.contentLength === 'Long' ? 6000
       : this.ebook?.contentLength === 'Medium' ? 4000 : 2000;
     return `${Math.ceil(targetWords / 200)} menit`;
@@ -555,7 +271,7 @@ export class EbookDetailPageComponent implements OnInit {
       this.chapterList =
         result?.editorContent?.map((chapter) => ({ title: chapter.title })) ??
         [];
-    }, error: () => { this.loadError = 'Ebook tidak tersedia atau gagal dimuat. Kembali ke dashboard.'; } });
+    }, error: () => { this.loadError = 'Ebook tidak tersedia atau gagal dimuat. Kembali ke Home.'; } });
   }
 
   startReading(): void {

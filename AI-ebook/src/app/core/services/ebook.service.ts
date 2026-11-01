@@ -323,8 +323,8 @@ export class EbookService {
   updateCover(id: string, coverImage: string): Observable<Ebook> {
     return this.updateEbook(id, { coverImage });
   }
-  deleteEbook(id: string): void {
-    throw new Error('Penghapusan belum tersedia.');
+  deleteEbook(id: string): Observable<void> {
+    return this.mutate(id, '', undefined, 'DELETE');
   }
   private readPublication(project: any): Observable<Ebook> {
     return this.http.get<any>(this.base + '/ebooks/' + project.id + '/publication').pipe(

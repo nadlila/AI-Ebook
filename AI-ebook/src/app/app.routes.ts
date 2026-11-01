@@ -38,7 +38,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/account/pages/account-page.component')
           .then(m => m.AccountPageComponent)
       },
-      { path: 'dashboard', component: DashboardPageComponent },
+      { path: 'dashboard', redirectTo: 'home', pathMatch: 'full' },
+      { path: 'home', component: DashboardPageComponent, data: { view: 'home' } },
+      { path: 'library', component: DashboardPageComponent, data: { view: 'library' } },
+      { path: 'drafts', component: DashboardPageComponent, data: { view: 'drafts' } },
+      { path: 'settings', component: DashboardPageComponent, data: { view: 'settings' } },
       { path: 'ebooks/:id/detail', component: EbookDetailPageComponent },
       {
         path: 'ebooks/create',

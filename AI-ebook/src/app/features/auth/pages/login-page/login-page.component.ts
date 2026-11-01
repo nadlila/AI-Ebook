@@ -39,7 +39,7 @@ import { environment } from '../../../../../environments/environment';
                 />
               </svg>
             </span>
-            <input type="email" aria-label="Email" formControlName="email" placeholder="Email" autocomplete="username" />
+            <input type="email" aria-label="Email" formControlName="email" placeholder="Masukkan email Anda" autocomplete="username" />
           </div>
 
           <div class="field">

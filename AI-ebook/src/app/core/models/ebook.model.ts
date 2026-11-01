@@ -61,6 +61,7 @@ export interface EbookOutline {
 }
 
 export interface EbookSummary {
+  createdAt?: string;
   workflowDrafts?: Record<string, any>;
   lastReadAt?: string;
   id: string;

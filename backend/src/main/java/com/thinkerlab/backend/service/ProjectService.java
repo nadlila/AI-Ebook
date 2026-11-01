@@ -28,6 +28,8 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 @Transactional
 public class ProjectService {
+  @jakarta.persistence.PersistenceContext
+  private jakarta.persistence.EntityManager entityManager;
   private final ProjectRepository projects;
   private final SourceRepository sources;
   private final OutlineRepository outlines;
@@ -114,6 +116,26 @@ public class ProjectService {
     audit(p, "PROJECT_CREATED", p.id);
     projects.flush();
     return p;
+  }
+
+  public void delete(UUID id, long revision) {
+    var p = owned(id);
+    match(p, revision);
+    p.approvedOutlineId = null;
+    p.currentVersionId = null;
+    p.approvedVersionId = null;
+    projects.flush();
+    for (String entity : List.of("ReadingProgress", "Issue")) {
+      entityManager.createQuery("delete from " + entity
+          + " e where e.publicationId in (select pub.id from Publication pub where pub.projectId = :id)")
+          .setParameter("id", id).executeUpdate();
+    }
+    for (String entity : List.of("Publication", "QualityReport", "ContentVersion", "Outline", "Source", "AuditEvent")) {
+      entityManager.createQuery("delete from " + entity + " e where e.projectId = :id")
+          .setParameter("id", id).executeUpdate();
+    }
+    projects.delete(p);
+    projects.flush();
   }
 
   public Project update(UUID id, long revision, ProjectInput in) {
