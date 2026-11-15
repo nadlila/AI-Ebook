@@ -30,12 +30,11 @@ interface StockPhoto { id: string; preview: string; image: string; photographerU
       </div><div class="composer">
         <canvas #preview width="480" height="720" aria-label="Preview desain cover"></canvas>
         <div *ngIf="selected">
-          <label for="cover-title-text">Judul pada cover</label><input id="cover-title-text" [(ngModel)]="title" (ngModelChange)="draw()" maxlength="200" [disabled]="saving" />
           <label for="cover-author">Nama penulis (opsional)</label><input id="cover-author" [(ngModel)]="author" (ngModelChange)="draw()" maxlength="80" [disabled]="saving" />
           <label for="cover-zoom">Zoom gambar</label><input id="cover-zoom" type="range" min="1" max="2" step="0.05" [(ngModel)]="zoom" (ngModelChange)="draw()" [disabled]="saving" />
           <label for="cover-x">Posisi horizontal</label><input id="cover-x" type="range" min="0" max="1" step="0.01" [(ngModel)]="x" (ngModelChange)="draw()" [disabled]="saving" />
           <label for="cover-y">Posisi vertikal</label><input id="cover-y" type="range" min="0" max="1" step="0.01" [(ngModel)]="y" (ngModelChange)="draw()" [disabled]="saving" />
-          <button type="button" (click)="useCover()" [disabled]="busy || saving || !image || !title.trim()">{{ saving ? 'Menyimpan...' : 'Gunakan cover ini' }}</button>
+          <button type="button" (click)="useCover()" [disabled]="busy || saving || !image">{{ saving ? 'Menyimpan...' : 'Gunakan cover ini' }}</button>
         </div>
       </div></div>
     </section></div>
@@ -66,11 +65,11 @@ export class StockCoverComponent implements OnInit {
   @Output() coverChosen = new EventEmitter<File>();
   @ViewChild('preview', {static: true}) preview!: ElementRef<HTMLCanvasElement>;
   private readonly http = inject(HttpClient);
-  query = ''; title = ''; author = ''; page = 1; busy = false; searched = false; error = '';
+  query = ''; author = ''; page = 1; busy = false; searched = false; error = '';
   photos: StockPhoto[] = []; selected: StockPhoto | null = null; image: HTMLImageElement | null = null;
   zoom = 1; x = .5; y = .5;
   private get endpoint(): string { return environment.apiBaseUrl + '/ebooks/' + this.ebookId + '/cover/photos'; }
-  ngOnInit(): void { this.query = this.ebookTitle.slice(0,150); this.title = this.ebookTitle; }
+  ngOnInit(): void { this.query = this.ebookTitle.slice(0,150); }
   search(page: number): void {
     if (this.busy || this.saving || !this.query.trim()) return;
     this.busy = true; this.error = ''; this.searched = true;
@@ -90,14 +89,6 @@ export class StockCoverComponent implements OnInit {
     img.src = photo.image;
   }
 
-  private wrap(ctx: CanvasRenderingContext2D, text: string, width: number): string[] {
-    const lines: string[] = []; let line = '';
-    for (const char of Array.from(text.trim())) {
-      if (char === '\n' || ctx.measureText(line + char).width > width) { lines.push(line.trim()); line = char === '\n' ? '' : char; }
-      else line += char;
-    }
-    if (line.trim()) lines.push(line.trim()); return lines;
-  }
   draw(): void {
     if (!this.image) return;
     const ctx = this.preview.nativeElement.getContext('2d'); if (!ctx) return;
@@ -107,15 +98,11 @@ export class StockCoverComponent implements OnInit {
     ctx.clearRect(0,0,480,720); ctx.drawImage(img, -(width - 480) * Number(this.x), -(height - 720) * Number(this.y), width, height);
     const gradient = ctx.createLinearGradient(0,180,0,720); gradient.addColorStop(0,'rgba(0,0,0,0)'); gradient.addColorStop(1,'rgba(0,0,0,.9)');
     ctx.fillStyle = gradient; ctx.fillRect(0,0,480,720); ctx.fillStyle = 'white'; ctx.textBaseline = 'top';
-    let size = 42; let lines: string[] = [];
-    do { ctx.font = 'bold ' + size + 'px sans-serif'; lines = this.wrap(ctx, this.title, 400); if (lines.length <= 6) break; size -= 2; } while (size > 20);
-    const top = Math.max(200, 590 - lines.length * size * 1.2);
-    lines.forEach((line,i) => ctx.fillText(line,40,top + i * size * 1.2));
     ctx.font = '22px sans-serif'; ctx.fillText(this.author.trim(),40,625,400);
     ctx.font = '12px sans-serif'; ctx.fillText('Foto: ' + (this.selected?.photographer || '') + ' / Unsplash',40,684,400);
   }
   useCover(): void {
-    if (!this.image || this.busy || this.saving || !this.title.trim()) return;
+    if (!this.image || this.busy || this.saving) return;
     this.busy = true; this.error = '';
     this.draw();
     try {

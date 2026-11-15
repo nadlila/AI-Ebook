@@ -10,7 +10,7 @@ html, body {
   box-sizing: border-box;
 }
 
-button, input {
+button, input, textarea, select {
   font: inherit;
 }
 
@@ -26,4 +26,78 @@ button {
 button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* Shared layout for ebook creation steps, scoped away from library and reader. */
+.ebook-workflow { min-height: 100dvh; background: #fff; }
+.workflow-back { max-width: 760px; margin: 0 auto 14px; }
+.workflow-home { display: inline-flex; gap: 8px; align-items: center; color: #292723;
+  text-decoration: none; font-size: 13px; font-weight: 500; padding: 4px 0; }
+.workflow-home:hover { text-decoration: underline; text-underline-offset: 3px; }
+.workflow-home:focus-visible { outline: 2px solid #58534b; outline-offset: 3px; }
+.ebook-workflow .page-content { padding: 24px 24px 32px; }
+.ebook-workflow .page-content .page-shell {
+  min-height: 0; margin: 0 auto; padding: 0; max-width: 760px;
+  display: flex; align-items: flex-start; justify-content: center; background: transparent;
+}
+.ebook-workflow .page-content .card, .ebook-workflow .page-content .generation-card {
+  width: 100%; padding: 18px 22px; border-radius: 14px;
+}
+.ebook-workflow h2 { margin: 0 0 14px; font-size: 22px; line-height: 1.25; }
+.ebook-workflow p { font-size: 13px; line-height: 1.45; margin: 6px 0; }
+.ebook-workflow p[role='status']:empty { display: none; }
+.ebook-workflow form { gap: 8px; }
+.ebook-workflow label { font-size: 13px; margin-top: 0; }
+.ebook-workflow input:not([type='checkbox']):not([type='radio']),
+.ebook-workflow select, .ebook-workflow textarea {
+  font: inherit; font-size: 14px; line-height: 1.4; padding: 8px 11px; border-radius: 8px;
+}
+.ebook-workflow textarea { height: 76px; min-height: 60px; }
+.ebook-workflow input[type='checkbox'], .ebook-workflow input[type='radio'] {
+  width: 16px; height: 16px; flex-shrink: 0; margin: 0; accent-color: #292723;
+}
+.ebook-workflow button { font-size: 13px; min-height: 34px; padding: 7px 12px; }
+.ebook-workflow .primary-btn, .ebook-workflow .back-btn, .ebook-workflow .secondary-btn {
+  height: 36px; min-width: 110px; margin-top: 0; border-radius: 8px;
+}
+.ebook-workflow .actions { flex-direction: row; flex-wrap: wrap; gap: 8px; margin-top: 12px;
+  padding: 10px 0 2px; }
+.ebook-workflow .status-message, .ebook-workflow .error-message { padding: 8px 10px; margin: 0; }
+.ebook-workflow .outline-list { gap: 8px; }
+.ebook-workflow .outline-list article { padding: 10px 12px; }
+.ebook-workflow .order { gap: 8px; margin-top: 6px; }
+.ebook-workflow .generation-header { padding-bottom: 4px; }
+.ebook-workflow .stats-grid { gap: 8px; margin-bottom: 10px; }
+.ebook-workflow .stat { padding: 8px 10px; gap: 4px; min-width: 0; }
+.ebook-workflow .ai-task { gap: 10px; margin-top: 10px; padding: 10px; border-radius: 10px; }
+.ebook-workflow .ai-task > div { min-width: 0; font-size: 13px; }
+.ebook-workflow .estimate { max-width: 180px; font-size: 11px; }
+.ebook-workflow .chapter-list { gap: 6px; margin-top: 10px; }
+.ebook-workflow .chapter-card { grid-template-columns: 28px minmax(0, 1fr) auto; gap: 8px; }
+.ebook-workflow .chapter-copy { min-width: 0; overflow-wrap: anywhere; }
+.ebook-workflow app-learning-preferences-page form {
+  display: grid; grid-template-columns: 160px minmax(0, 1fr); align-items: center; gap: 10px 16px;
+}
+.ebook-workflow app-learning-preferences-page .radio-group { gap: 6px; }
+.ebook-workflow app-learning-preferences-page .radio-group label { font-size: 12px; }
+.ebook-workflow app-learning-preferences-page .radio-group p { font-size: 12px; }
+.ebook-workflow app-learning-preferences-page .actions { grid-column: 1 / -1; }
+.ebook-workflow app-learning-preferences-page form { margin-top: 12px; }
+.ebook-workflow .page-content .sources { max-width: 760px; padding: 18px 22px; margin: 0 auto;
+  background: #f3f0ee; border: 1px solid #d7d2cf; border-radius: 14px; }
+.ebook-workflow .sources header { margin: 0 0 14px; }
+.ebook-workflow .sources h1 { margin: 6px 0; font-size: 24px; }
+.ebook-workflow .source-form { padding: 14px; margin: 12px 0; }
+.ebook-workflow .source-card { padding: 12px; }
+.ebook-workflow .source-list { gap: 8px; }
+.ebook-workflow .notice, .ebook-workflow .error, .ebook-workflow .empty { padding: 10px; }
+@media (max-width: 600px) {
+  .ebook-workflow .page-content { padding: 16px 12px 24px; }
+  .ebook-workflow .page-content .card, .ebook-workflow .page-content .generation-card,
+  .ebook-workflow .page-content .sources { padding: 16px; }
+  .ebook-workflow app-learning-preferences-page form { grid-template-columns: 1fr; gap: 8px; }
+  .ebook-workflow .actions > button { flex: 1; min-width: 100px; }
+  .ebook-workflow .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ebook-workflow .ai-task { flex-wrap: wrap; }
+  .ebook-workflow .estimate { max-width: none; margin-left: 40px; }
 }

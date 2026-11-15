@@ -7,10 +7,10 @@ import org.springframework.web.bind.annotation.RestController;
 /** Lets the frontend hide actions whose external services are not implemented yet. */
 @RestController
 public class CapabilityController {
-  private final com.thinkerlab.backend.service.GeminiService gemini;
+  private final com.thinkerlab.backend.service.AiProviderService ai;
 
-  public CapabilityController(com.thinkerlab.backend.service.GeminiService gemini) {
-    this.gemini = gemini;
+  public CapabilityController(com.thinkerlab.backend.service.AiProviderService ai) {
+    this.ai = ai;
   }
 
   @GetMapping("/api/capabilities")
@@ -22,8 +22,8 @@ public class CapabilityController {
         "manualOutlineAndContent", true,
         "versioningAndPublishing", true,
         "qualityCheckScope", "STRUCTURAL_ONLY",
-        "aiResearch", gemini.configured(),
-        "aiGeneration", gemini.configured(),
+        "aiResearch", ai.researchConfigured(),
+        "aiGeneration", ai.configured(),
         "backgroundJobs", false);
   }
 }

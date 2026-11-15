@@ -42,7 +42,7 @@ import {
         </article>
       </section>
 
-      <div class="section-card library" *ngIf="view === 'library'">
+      <div class="section-card library portrait-library" *ngIf="view === 'library'">
         <h1 class="page-title">My Library</h1>
         <p *ngIf="!readyBooks(data.recentEbooks).length">{{ searchQuery ? 'Tidak ada ebook yang cocok dengan pencarian.' : 'Belum ada ebook siap dibaca. Selesaikan draft untuk menyimpannya di sini.' }}</p>
         <div class="ebook-grid">
@@ -51,36 +51,25 @@ import {
             *ngFor="let item of readyBooks(data.recentEbooks)"
             (click)="openEbook(item)"
             tabindex="0"
-            (keydown.enter)="openEbook(item)"
+            (keydown.enter)="$event.target === $event.currentTarget && openEbook(item)"
           >
             <div class="cover">
               <img *ngIf="item.coverImage; else libraryCoverPlaceholder" [src]="item.coverImage" [alt]="item.title" />
               <ng-template #libraryCoverPlaceholder><div class="no-cover">{{ item.title }}</div></ng-template>
             </div>
-            <div class="book-title">{{ item.title }}</div>
-            <div class="book-meta">{{ item.chapterCount }} Chapters</div>
-            <div class="book-meta" *ngIf="isInProgress(item)">
-              {{ item.creationProgress }}% completed
+            <div class="portrait-content">
+              <span class="portrait-label">Thinker Lab</span>
+              <h2 class="book-title">{{ item.title }}</h2>
+              <div class="portrait-footer">
+                <div class="portrait-stats">
+                  <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 4h7v16H4zM13 4h7v16h-7z"/></svg>{{ item.chapterCount }} bab</span>
+                  <span>{{ item.readingProgress || 0 }}% dibaca</span>
+                </div>
+                <button class="resume-btn" type="button"
+                  (click)="$event.stopPropagation(); continueReading(item)"
+                  [attr.aria-label]="'Baca ' + item.title">Baca <span aria-hidden="true">↗</span></button>
+              </div>
             </div>
-            <div class="book-meta" *ngIf="!isInProgress(item)">
-              {{ item.readingProgress }}% reading progress
-            </div>
-            <button
-              class="resume-btn"
-              *ngIf="isInProgress(item)"
-              type="button"
-              (click)="$event.stopPropagation(); resume(item)"
-            >
-              Continue Creating
-            </button>
-            <button
-              class="resume-btn"
-              *ngIf="!isInProgress(item)"
-              type="button"
-              (click)="$event.stopPropagation(); continueReading(item)"
-            >
-              Continue Reading
-            </button>
           </article>
         </div>
       </div>
@@ -325,6 +314,39 @@ h1 {
         justify-content: center;
         color: #666;
       }
+      .portrait-library .ebook-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+      .portrait-library .ebook-item {
+        position: relative; isolation: isolate; min-height: 300px; aspect-ratio: 3 / 4;
+        padding: 0; border: 7px solid #eeefeb; border-radius: 36px;
+        background: #304342; box-shadow: 0 10px 24px #20332f18; text-align: left;
+        transition: transform .2s ease, box-shadow .2s ease;
+      }
+      .portrait-library .ebook-item:hover { transform: translateY(-4px); box-shadow: 0 16px 30px #20332f26; }
+      .portrait-library .ebook-item:focus-visible { outline: 3px solid #566b60; outline-offset: 4px; }
+      .portrait-library .cover { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; }
+      .portrait-library .cover img { height: 100%; border-radius: 0; }
+      .portrait-library .no-cover { padding: 24px 24px 160px; font-size: 26px; font-family: Georgia, serif;
+        background: radial-gradient(ellipse at 20% 10%, #a2b7a0, transparent 65%), linear-gradient(145deg, #607b75, #1e3336); }
+      .portrait-content { position: relative; z-index: 1; margin-top: auto; width: 100%; padding: 48px 16px 16px;
+        color: white; background: linear-gradient(transparent, #112220b8 32%, #112220ed); }
+      .portrait-label { font-size: 9px; letter-spacing: 1.8px; color: #ffffffbf; }
+      .portrait-library .book-title { font-size: 21px; line-height: 1.15; font-weight: 600; margin: 5px 0;
+        display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+      .portrait-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
+      .portrait-stats { display: grid; gap: 3px; font-size: 11px; }
+      .portrait-stats span { display: flex; align-items: center; gap: 6px; }
+      .portrait-library .resume-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        width: auto; margin: 0; padding: 7px 12px; min-height: 32px; border: 1px solid #ffffffb3;
+        border-radius: 999px; color: #1e2826; background: #f5f5f1; font-size: 12px; font-weight: 600; }
+      .portrait-library .resume-btn:hover { background: white; }
+      @media (max-width: 1000px) {
+        .portrait-library .ebook-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+      @media (max-width: 600px) {
+        .portrait-library .ebook-grid { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+        .portrait-library .ebook-item { max-width: 340px; }
+      }
+      @media (prefers-reduced-motion: reduce) { .portrait-library .ebook-item { transition: none; } }
       @media (max-width: 760px) {
         .ebook-grid {
           grid-template-columns: repeat(2, minmax(140px, 1fr));

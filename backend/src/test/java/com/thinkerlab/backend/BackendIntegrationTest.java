@@ -18,7 +18,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.*;
 import tools.jackson.databind.*;
 
-@SpringBootTest
+@SpringBootTest(properties = "app.ai.provider=gemini")
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class BackendIntegrationTest {
@@ -677,6 +677,7 @@ class BackendIntegrationTest {
 
   @Test
   void researchIsPrivatePersistentAndCachedUntilExplicitRefresh() throws Exception {
+    org.mockito.Mockito.when(gemini.configured()).thenReturn(true);
     String id = create().get("id").asText();
     var result = new com.thinkerlab.backend.api.response.ResearchResult(
         List.of(new com.thinkerlab.backend.api.request.SourceInput("Grounded source", "example.org",
@@ -705,6 +706,7 @@ class BackendIntegrationTest {
 
   @Test
   void failedResearchDoesNotCreateFakeSources() throws Exception {
+    org.mockito.Mockito.when(gemini.configured()).thenReturn(true);
     String id = create().get("id").asText();
     org.mockito.Mockito.when(gemini.research(org.mockito.ArgumentMatchers.anyString()))
         .thenThrow(new org.springframework.web.server.ResponseStatusException(

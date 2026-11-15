@@ -1,6 +1,6 @@
 # ThinkerLab backend
 
-> Riset referensi otomatis, outline, dan konten kini memakai Gemini. Lihat [panduan riset web](docs/WEB_RESEARCH.md) untuk migrasi V002, konfigurasi, dan pengujian. Bagian rancangan awal di bawah yang menyebut AI belum tersedia sudah digantikan oleh integrasi ini.
+> Riset referensi otomatis memakai Gemini. Outline dan konten bisa memakai Gemini (default), OpenAI, atau OpenRouter; lihat [pilihan provider AI](docs/AI_PROVIDERS.md). Lihat [panduan riset web](docs/WEB_RESEARCH.md) untuk migrasi V002, konfigurasi, dan pengujian. Bagian rancangan awal di bawah yang menyebut AI belum tersedia sudah digantikan oleh integrasi ini.
 
 > Perubahan terbaru: semua ebook dan endpoint library hanya dapat diakses pemilik. `PUBLISHED` berarti siap dibaca di library pribadi. Lihat [kontrak library pribadi](docs/PRIVATE_LIBRARY.md) untuk pemetaan frontend dan aturan akses terbaru.
 

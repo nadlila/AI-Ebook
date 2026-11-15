@@ -57,7 +57,7 @@ import { Ebook } from '../../../../core/models/ebook.model';
                   </ng-container>
                 </div>
               </div>
-              </article><section class="chapter-page" *ngIf="ebook?.sources?.length">
+              </article><section class="chapter-page references-page" *ngIf="ebook?.sources?.length">
                 <h3>Referensi</h3>
                 <p *ngFor="let source of ebook?.sources">
                   <span *ngIf="!source.url">{{ source.title }}</span>
@@ -107,23 +107,22 @@ import { Ebook } from '../../../../core/models/ebook.model';
   styles: [
     `
       .reader-shell {
-        box-sizing: border-box; height: calc(100dvh); min-height: 320px;
-        background-color: #f5f5f5;
+        box-sizing: border-box; min-height: 100dvh;
+        background-color: #fff;
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: center;
         padding: 20px;
       }
       .reader-card {
         width: 100%;
-        max-width: 1100px;
+        max-width: 1120px;
         background: #f9f8f6;
-        border-radius: 24px;
-        padding: 24px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        border-radius: 14px;
+        padding: 20px;
         display: flex;
         flex-direction: column;
-        box-sizing: border-box; height: 100%; min-height: 0;
+        box-sizing: border-box;
       }
       .back-btn {
         margin-bottom: 24px;
@@ -148,12 +147,14 @@ import { Ebook } from '../../../../core/models/ebook.model';
         min-height: 0;
         min-width: 0;
         display: grid;
-        grid-template-columns: 260px 1fr;
+        grid-template-columns: 190px minmax(0, 1fr);
         gap: 24px;
         flex: 1;
-        overflow: hidden;
+        align-items: start;
       }
       .content-panel {
+        position: sticky;
+        top: 20px;
         min-height: 0;
         background: transparent;
         display: flex;
@@ -170,7 +171,6 @@ import { Ebook } from '../../../../core/models/ebook.model';
       }
       .chapter-list-scroll {
         flex: 1;
-        overflow-y: auto;
       }
       .chapter-item {
         width: 100%;
@@ -208,29 +208,37 @@ import { Ebook } from '../../../../core/models/ebook.model';
         min-height: 0;
         min-width: 0;
         background: white;
-        border-radius: 16px;
+        border-radius: 0;
         display: flex;
         flex-direction: column;
         overflow: hidden;
         border: 1px solid #e0e0e0;
       }
-.page-window{flex:1;min-height:0;min-width:0;overflow:hidden;margin:24px 32px}.page-flow{position:relative;width:100%;height:100%;column-count:1;column-gap:40px;column-fill:auto}.chapter-page + .chapter-page{padding-top:16px}.block,li{overflow-wrap:anywhere}h4{break-after:avoid}p,ul{orphans:2;widows:2}
+.page-window{height:820px;flex:none;min-width:0;overflow:hidden;margin:44px 40px 20px}.page-flow{position:relative;width:100%;height:100%;column-count:1;column-gap:40px;column-fill:auto}.chapter-page + .chapter-page{padding-top:16px}.block,li{overflow-wrap:anywhere}h4{break-after:avoid}p,ul{orphans:2;widows:2}
       .chapter-title {
         break-after: avoid;
-        font-size: 1.3rem;
+        font-size: 24px;
         font-weight: 700;
-        margin-bottom: 18px;
-        text-align: center;
+        margin: 0 0 24px;
+        line-height: 1.35;
+        text-align: left;
         color: #1a1a1a;
       }
       .chapter-content {
-        line-height: 1.65;
-        font-size: .95rem;
+        font-family: Georgia, 'Times New Roman', serif;
+        line-height: 1.7;
+        font-size: 16px;
         color: #333;
-        text-align: left;
+        text-align: justify;
       }
       .block {
-        margin-bottom: 20px;
+        margin-bottom: 14px;
+      }
+      .citation-inline, .references-page p {
+        font-size: 12px;
+        line-height: 1.5;
+        color: #666;
+        overflow-wrap: anywhere;
       }
       .callout {
         background: #f9f8f6;
@@ -287,6 +295,7 @@ import { Ebook } from '../../../../core/models/ebook.model';
           gap: 12px;
         }
         .content-panel {
+          position: static;
           border-right: 0;
           padding-right: 0;
         }
@@ -299,6 +308,12 @@ import { Ebook } from '../../../../core/models/ebook.model';
         .scroll-container {
           padding: 30px 20px;
         }
+      }
+      @media (max-width: 700px) {
+        .reader-shell { padding: 12px; }
+        .reader-card { padding: 12px; }
+        .page-window { height: 680px; margin: 24px 20px 16px; }
+        .pager { flex-wrap: wrap; gap: 8px; }
       }
     `,
   ],

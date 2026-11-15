@@ -446,7 +446,7 @@ export class GenerationPageComponent implements OnInit {
     this.progress = {
       ...this.progress,
       failedChapters: 0,
-      currentChapter: 'Gemini sedang menyusun seluruh bab',
+      currentChapter: 'AI sedang menyusun seluruh bab',
       chapters: this.progress.chapters.map((c) => ({ ...c, status: c.status === 'completed' ? 'completed' : 'generating' })),
     };
     this.ebookService.startGeneration(id).subscribe({

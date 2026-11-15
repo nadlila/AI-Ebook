@@ -1,6 +1,6 @@
 import { InlineTextDirective } from '../../../../shared/directives/inline-text.directive';
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, ElementRef, inject, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { EditorChapterContent } from '../../../../core/models/ebook.model';
 import { EbookService } from '../../../../core/services/ebook.service';
@@ -34,7 +34,7 @@ import { EbookService } from '../../../../core/services/ebook.service';
               *ngFor="let chapter of chapters; let i = index"
               class="chapter-item"
               [class.active]="selectedIndex === i"
-              (click)="selectedIndex = i"
+              (click)="selectChapter(i)"
             >
               <span class="chapter-number">{{
                 (i + 1).toString().padStart(2, '0')
@@ -46,10 +46,12 @@ import { EbookService } from '../../../../core/services/ebook.service';
 
         <!-- Editor Main -->
         <main class="editor-main">
-          <div class="page-content" *ngIf="selectedChapter">
+          <p class="edit-hint">Klik teks untuk mengedit. Teks mengalir otomatis ke halaman berikutnya saat penuh.</p>
+          <div class="paper" *ngIf="selectedChapter">
+          <div class="paper-window" #paperWindow (input)="schedulePagination()" (paste)="schedulePagination()" (keyup)="followCaret()">
+          <div class="paper-flow" #paperFlow [style.transform]="pageTransform">
             <h2 class="chapter-title inline-editable" [(appInlineText)]="selectedChapter.title"
               [inlineDisabled]="saving" aria-label="Judul bab" data-placeholder="Judul bab"></h2>
-            <p class="edit-hint">Klik teks untuk mengedit langsung. Perubahan disimpan saat memilih Simpan dan lanjutkan.</p>
             <div class="content-blocks">
               <div
                 class="block"
@@ -80,8 +82,15 @@ import { EbookService } from '../../../../core/services/ebook.service';
                 </ng-container>
               </div>
             </div>
-            <div class="page-number">[{{ selectedIndex + 1 }}]</div>
           </div>
+          </div>
+            <div class="page-number">{{ pageIndex + 1 }}</div>
+          </div>
+          <nav class="page-controls" aria-label="Navigasi halaman editor" *ngIf="selectedChapter">
+            <button type="button" (click)="turnPage(-1)" [disabled]="pageIndex === 0 && selectedIndex === 0">← Sebelumnya</button>
+            <span aria-live="polite">Bab {{ selectedIndex + 1 }} · Halaman {{ pageIndex + 1 }} / {{ pageCount }}</span>
+            <button type="button" (click)="turnPage(1)" [disabled]="pageIndex === pageCount - 1 && selectedIndex === chapters.length - 1">Berikutnya →</button>
+          </nav>
         </main>
 
         <aside class="sidebar right-sidebar">
@@ -250,10 +259,107 @@ import { EbookService } from '../../../../core/services/ebook.service';
           grid-template-columns: 1fr;
         }
       }
+
+      :host { padding: 0; background: white; min-height: 0; }
+      .editor-container { max-width: 1280px; padding: 20px; border-radius: 14px; box-shadow: none; }
+      .editor-header { gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+      .editor-layout { grid-template-columns: 190px minmax(0, 1fr) 150px; gap: 20px; }
+      .editor-layout .sidebar { position: sticky; top: 20px; }
+      .editor-main { min-width: 0; padding: 0; background: transparent; border: 0; min-height: 0; }
+      .edit-hint { margin: 0 0 12px; }
+      .paper { background: white; border: 1px solid #dedbd5; box-shadow: 0 2px 8px #00000008; padding: 44px 40px 20px; }
+      .paper-window { height: 820px; min-width: 0; overflow: hidden; }
+      .paper-flow { width: 100%; height: 100%; column-count: 1; column-gap: 40px; column-fill: auto; position: relative; }
+      .paper-flow .chapter-title { text-align: left; font-size: 24px; line-height: 1.35; margin: 0 0 24px; break-after: avoid; }
+      .content-blocks { font-family: Georgia, 'Times New Roman', serif; font-size: 16px; line-height: 1.7; }
+      .content-blocks .inline-editable { text-align: justify; min-height: 1.7em; border-radius: 0; orphans: 2; widows: 2; }
+      .block { margin-bottom: 14px; }
+      .block h3 { margin: 16px 0 8px; font-size: 18px; break-after: avoid; }
+      .block ul { padding-left: 24px; margin: 8px 0; }
+      .inline-editable:focus { outline-offset: 1px; }
+      .page-number { margin-top: 20px; font-size: 12px; color: #777; }
+      .page-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; font-size: 12px; }
+      .page-controls button { border: 1px solid #d4d0c9; border-radius: 8px; background: white; padding: 8px 12px; cursor: pointer; }
+      .page-controls button:disabled { opacity: .45; cursor: default; }
+      @media (max-width: 1100px) {
+        .editor-layout { grid-template-columns: 170px minmax(0, 1fr); }
+        .right-sidebar { grid-column: 1 / -1; }
+      }
+      @media (max-width: 700px) {
+        .editor-container { padding: 12px; }
+        .editor-layout { grid-template-columns: minmax(0, 1fr); }
+        .editor-layout .sidebar { position: static; }
+        .left-sidebar .chapter-list { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+        .chapter-item { max-width: 100%; font-size: 12px; }
+        .paper { padding: 24px 20px 16px; }
+        .paper-window { height: 680px; }
+        .page-controls { flex-wrap: wrap; }
+      }
     `,
   ],
 })
-export class EditorPageComponent implements OnInit {
+export class EditorPageComponent implements OnInit, OnDestroy {
+  @ViewChild('paperFlow') paperFlow?: ElementRef<HTMLDivElement>;
+  @ViewChild('paperWindow') set paperWindow(ref: ElementRef<HTMLDivElement> | undefined) {
+    this.resizeObserver?.disconnect();
+    this.viewport = ref?.nativeElement;
+    if (this.viewport) {
+      this.resizeObserver = new ResizeObserver(() => this.schedulePagination());
+      this.resizeObserver.observe(this.viewport);
+      this.schedulePagination();
+    }
+  }
+  private viewport?: HTMLDivElement;
+  private resizeObserver?: ResizeObserver;
+  private frame = 0;
+  private pageWidth = 0;
+  pageIndex = 0;
+  pageCount = 1;
+  get pageTransform(): string { return `translateX(-${this.pageIndex * (this.pageWidth + 40)}px)`; }
+  schedulePagination(): void {
+    cancelAnimationFrame(this.frame);
+    this.frame = requestAnimationFrame(() => {
+      const flow = this.paperFlow?.nativeElement;
+      if (!flow || !this.viewport) return;
+      this.pageWidth = this.viewport.clientWidth;
+      if (!this.pageWidth) return;
+      this.pageCount = Math.max(1, Math.ceil((flow.scrollWidth + 40) / (this.pageWidth + 40)));
+      this.pageIndex = Math.min(this.pageIndex, this.pageCount - 1);
+      this.followCaret();
+    });
+  }
+  followCaret(): void {
+    const selection = window.getSelection();
+    const flow = this.paperFlow?.nativeElement;
+    if (!selection?.rangeCount || !flow || !flow.contains(selection.anchorNode) || !this.pageWidth) return;
+    const range = selection.getRangeAt(0).cloneRange();
+    range.collapse(false);
+    const rect = range.getBoundingClientRect();
+    if (!rect.height) return;
+    const position = rect.left - flow.getBoundingClientRect().left;
+    this.pageIndex = Math.max(0, Math.min(this.pageCount - 1, Math.floor(position / (this.pageWidth + 40))));
+    // Browsers may scroll the clipped window when focusing a textbox on another page.
+    if (this.viewport) this.viewport.scrollLeft = 0;
+  }
+  selectChapter(index: number): void {
+    window.getSelection()?.removeAllRanges();
+    this.selectedIndex = index;
+    this.pageIndex = 0;
+    this.schedulePagination();
+  }
+  turnPage(direction: number): void {
+    (document.activeElement as HTMLElement | null)?.blur();
+    window.getSelection()?.removeAllRanges();
+    const next = this.pageIndex + direction;
+    if (next >= 0 && next < this.pageCount) this.pageIndex = next;
+    else if (direction > 0 && this.selectedIndex < this.chapters.length - 1) this.selectChapter(this.selectedIndex + 1);
+    else if (direction < 0 && this.selectedIndex > 0) {
+      this.selectChapter(this.selectedIndex - 1);
+      this.schedulePagination();
+      requestAnimationFrame(() => { this.pageIndex = this.pageCount - 1; });
+    }
+  }
+  ngOnDestroy(): void { this.resizeObserver?.disconnect(); cancelAnimationFrame(this.frame); }
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly ebookService = inject(EbookService);
@@ -297,6 +403,7 @@ export class EditorPageComponent implements OnInit {
         this.targetWords = e.contentLength === 'Long' ? 6000 : e.contentLength === 'Medium' ? 4000 : 2000;
         this.minWords = this.targetWords * .9;
         this.maxWords = this.targetWords === 6000 ? 6000 : this.targetWords * 1.1;
+        this.schedulePagination();
       });
 
   }

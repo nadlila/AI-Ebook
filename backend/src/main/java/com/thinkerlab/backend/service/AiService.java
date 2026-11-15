@@ -13,15 +13,15 @@ import org.springframework.stereotype.Service;
 public class AiService {
   private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AiService.class);
   private final ProjectService projects;
-  private final GeminiService gemini;
+  private final AiProviderService ai;
   private final JsonStore json;
   private final Validator validator;
   private final Set<UUID> active = ConcurrentHashMap.newKeySet();
 
   public AiService(
-      ProjectService projects, GeminiService gemini, JsonStore json, Validator validator) {
+      ProjectService projects, AiProviderService ai, JsonStore json, Validator validator) {
     this.projects = projects;
-    this.gemini = gemini;
+    this.ai = ai;
     this.json = json;
     this.validator = validator;
   }
@@ -108,7 +108,7 @@ public class AiService {
           + json.write(LearningLevels.selected(p)) + ". Include at least one chapter per selected level, "
           + "ordered from Beginner to Intermediate to Advanced. Different chapters have different levels; "
           + "do not mix all difficulty levels inside every chapter. Keep the same total ebook word budget.";
-      var generated = valid(gemini.generate(prompt, OutlineInput.class));
+      var generated = valid(ai.generate(prompt, OutlineInput.class));
       var result = LearningLevels.normalize(p,
           new OutlineInput(generated.title(), generated.learningOutcomes(), generated.chapters(), null, true), HttpStatus.BAD_GATEWAY);
       return projects.outlineView(projects.saveOutline(id, revision, result));
@@ -141,7 +141,7 @@ public class AiService {
           + " words. Preserve EXACT chapter IDs, titles and order. Do not add or remove chapters. "
           + "Describe scope in description and assign lessons 1 to 10 as relative depth weights. Avoid repetition. "
           + "Return JSON {title, learningOutcomes: [string], chapters: [{id,title,description,lessons}], estimatedReadingTime: string}.";
-      var result = valid(gemini.generate(prompt, OutlineInput.class));
+      var result = valid(ai.generate(prompt, OutlineInput.class));
       if (!ids.equals(result.chapters().stream().map(com.thinkerlab.backend.api.model.Chapter::id).toList()))
         throw ProjectService.error(HttpStatus.BAD_GATEWAY, "AI mengubah pilihan bab. Coba susun outline final lagi.");
       var chapters = new ArrayList<com.thinkerlab.backend.api.model.Chapter>();
@@ -168,7 +168,7 @@ public class AiService {
           + json.write(Map.of("title", p.title, "goal", p.learningGoal == null ? "" : p.learningGoal,
               "levels", LearningLevels.selected(p),
               "language", p.language == null ? "Indonesia" : p.language));
-      var result = gemini.research(prompt);
+      var result = ai.research(prompt);
       result.sources().forEach(this::valid);
       return projects.saveResearch(id, revision, result);
     } finally { active.remove(id); }
@@ -226,7 +226,7 @@ public class AiService {
               + " Citation blocks must include sourceId and citationLabel.";
       ContentInput result = null;
       for (int attempt = 0; attempt < 2; attempt++) {
-        result = valid(gemini.generate(prompt, ContentInput.class));
+        result = valid(ai.generate(prompt, ContentInput.class));
         if (result.chapters().size() != 1 || !chapter.id().equals(result.chapters().getFirst().chapterId()))
           throw ProjectService.error(HttpStatus.BAD_GATEWAY, "AI tidak mengikuti bab yang diminta. Coba generate ulang.");
         int actual = WordBudget.words(result.chapters().getFirst());

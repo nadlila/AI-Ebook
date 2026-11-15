@@ -237,7 +237,7 @@ export class LearningPlanPageComponent implements OnInit {
       if (typeof detail === 'string' && detail.trim()) return detail;
       if (error.status === 409) return 'Data ebook berubah atau proses lain masih berjalan. Muat ulang halaman sebelum mencoba lagi.';
       if (error.status === 403) return 'Akun ini belum memiliki akses untuk menyusun ebook.';
-      if (error.status === 502 || error.status === 503) return 'Layanan AI belum dapat menyusun outline. Periksa konfigurasi dan kuota Gemini di backend.';
+      if (error.status === 502 || error.status === 503) return 'Layanan AI belum dapat menyusun outline. Periksa konfigurasi dan kuota provider AI di backend.';
       return `Permintaan gagal (HTTP ${error.status}). Periksa respons backend sebelum mencoba lagi.`;
     }
     return 'Rencana belajar belum selesai diproses. Muat ulang halaman dan coba lagi.';
